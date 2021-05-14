@@ -1,0 +1,3 @@
+Quick and dirty way to trigger a Twitch recording by spawning a Docker container that handles the download. I use it to record live streams that are too late for me watch live :)
+
+**This is completely unsecured and talks directly to the Docker socket. As a result is this is INCREDIBLY UNSAFE. Only use on trusted networks and NEVER expose it publicly. Don't blame me if your machine gets turned into a botnet**
