@@ -53,12 +53,20 @@ function ensureImages() {
 let downloadQueue = [];
 function downloadTwitch(username) {
     let downloadCall = function() {
+        let url =  'https://www.twitch.tv/';
+
+        if (username.match('^\d{4}\d+$')) { // If "username" is a long number, it's probably a VOD.
+            url += 'videos/';
+        }
+
+        url += username;
+
         console.log('Creating container for ' + username);
         getConnection().createContainer({
             Image: 'handspiker2/youtube-dl',
             name: 'twitch_' + getUniqueId(),
             WorkingDir: '/data',
-            Cmd: ['-f', 'best', '--add-metadata', '--embed-subs', '--all-subs', '--merge-output-format', 'mkv', '-c', 'https://www.twitch.tv/' + username],
+            Cmd: ['-f', 'best', '--add-metadata', '--embed-subs', '--all-subs', '--merge-output-format', 'mkv', '-c', url],
             HostConfig: {
                 AutoRemove: true,
                 Binds: [
