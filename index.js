@@ -34,19 +34,30 @@ function ensureImages() {
     
         if (missing) {
             console.log('Pulling handspiker2/youtube-dl');
-            docker.pull('handspiker2/youtube-dl:latest', (err, stream) => {
-                docker.modem.followProgress(stream, (err, output) => { 
-                    console.log('Finished Pull');
-                    hasImage = true; 
-                    downloadQueue.forEach((method) => { method() });
-                    downloadQueue = [];
-                }, () => {});
+            updateImage('handspiker2/youtube-dl:latest', function() {
+                console.log('Finished Pull');
+                hasImage = true; 
+                downloadQueue.forEach((method) => { method() });
+                downloadQueue = [];
             });
+            
         } else {
             hasImage = true; 
             downloadQueue.forEach((method) => { method() });
             downloadQueue = [];
         }
+    });
+}
+
+function updateImage(image, callback) {
+    let docker = getConnection();
+    
+    docker.pull(image, (err, stream) => {
+        docker.modem.followProgress(stream, (err, output) => { 
+            if (typeof callback === 'function') {
+                callback();
+            }
+        }, () => {});
     });
 }
 
@@ -112,6 +123,8 @@ function downloadYoutube(videoId) {
             console.log(err);
         });
     };
+
+    ensureImages();
 
     if (hasImage) {
         downloadCall();
@@ -183,7 +196,17 @@ if (process.env.MQTT_BROKER) {
     });
 }
 
+const tickInterval = setInterval(() => {
+    if (mqttClient) {
+        mqttClient.publish(baseTopic + '/state', 'online')
+    }
+
+    updateImage('handspiker2/youtube-dl:latest');
+
+}, 6 * 60 * 60 * 1000) // 6 hours
+
 function stop() {
+    clearInterval(tickInterval);
     server.close();
     if (mqttClient) {
         mqttClient.publish(baseTopic + '/state', 'offline');
