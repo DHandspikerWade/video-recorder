@@ -100,6 +100,14 @@ app.post('/twitch/:username', (req, res) => {
     res.send('Got it!');
 });
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
     console.log(`Server listening on ${port}`);
 });
+server.timeout = 4000;
+
+function stop() {
+    server.close();
+}
+
+process.on("SIGINT", () => { console.log('Recieved SIGINT'); stop() } );
+process.on("SIGTERM", () => { console.log('Recieved SIGTERM'); stop() });
