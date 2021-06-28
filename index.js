@@ -87,6 +87,38 @@ function downloadTwitch(username) {
     }
 }
 
+function downloadYoutube(videoId) {
+    let downloadCall = function() {
+        let url =  'https://www.youtube.com/watch?v=';
+
+        url += videoId;
+
+        console.log('Creating container for ' + videoId);
+        getConnection().createContainer({
+            Image: 'handspiker2/youtube-dl',
+            name: 'youtube_' + getUniqueId(),
+            WorkingDir: '/data',
+            Cmd: ['-f', 'best', '--add-metadata', '--embed-subs', '--all-subs', '--merge-output-format', 'mkv', '-c', url],
+            HostConfig: {
+                AutoRemove: true,
+                Binds: [
+                    downloadPath + ':/data',
+                ],
+            }
+        }).then(function(container) {
+            return container.start();
+        }).catch(function(err) {
+            console.log(err);
+        });
+    };
+
+    if (hasImage) {
+        downloadCall();
+    } else {
+        downloadQueue.push(downloadCall);
+    }
+}
+
 ensureImages();
 
 app.get('/', (req, res) => {
@@ -96,6 +128,13 @@ app.get('/', (req, res) => {
 app.post('/twitch/:username', (req, res) => {
     if (req.params.username && req.params.username !== 'null') {
         downloadTwitch(req.params.username);
+    }
+    res.send('Got it!');
+});
+
+app.post('/youtube/:videoID', (req, res) => {
+    if (req.params.videoID && req.params.videoID !== 'null') {
+        downloadYoutube(req.params.videoID);
     }
     res.send('Got it!');
 });
