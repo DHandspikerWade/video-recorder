@@ -55,7 +55,7 @@ function downloadTwitch(username) {
     let downloadCall = function() {
         let url =  'https://www.twitch.tv/';
 
-        if (username.match('^\d{4}\d+$')) { // If "username" is a long number, it's probably a VOD.
+        if (username.match(/^\d{4}\d+$/)) { // If "username" is a long number, it's probably a VOD.
             url += 'videos/';
         }
 
