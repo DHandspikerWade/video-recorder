@@ -1,5 +1,6 @@
 const express = require('express');
 const Docker = require('dockerode');
+const mqtt = require('mqtt')
 const app = express();
 const port = 3000;
 
@@ -144,8 +145,50 @@ const server = app.listen(port, () => {
 });
 server.timeout = 4000;
 
+let mqttClient;
+let baseTopic = process.env.MQTT_TOPIC || 'video-recorder';
+if (process.env.MQTT_BROKER) {
+    mqttClient = mqtt.connect(process.env.MQTT_BROKER, {
+        will: {
+            topic: baseTopic + '/state',
+            payload: 'offline',
+            qos: 1
+        }
+    });
+
+    mqttClient.on('connect', () => {
+        // video-recorder/<service>
+        mqttClient.subscribe(baseTopic + '/+');
+        mqttClient.publish(baseTopic + '/state', 'online')
+    });
+
+    mqttClient.on('message', (topic, message) => {
+        if (topic.indexOf(baseTopic + '/') === 0) {
+            let service = topic.replace(baseTopic + '/', '');
+
+            if (service != 'state') {
+                switch (service) {
+                    case 'twitch':
+                        downloadTwitch(message);
+                        break;
+
+                    case 'youtube':
+                        downloadYoutube(message);
+                        break;
+
+                }
+            }
+        }
+        
+    });
+}
+
 function stop() {
     server.close();
+    if (mqttClient) {
+        mqttClient.publish(baseTopic + '/state', 'offline');
+        mqttClient.end()
+    }
 }
 
 process.on("SIGINT", () => { console.log('Recieved SIGINT'); stop() } );
