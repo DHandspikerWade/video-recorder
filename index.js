@@ -1,6 +1,6 @@
 const express = require('express');
 const Docker = require('dockerode');
-const mqtt = require('mqtt')
+const mqtt = require('mqtt');
 const app = express();
 const port = 3000;
 
@@ -51,7 +51,7 @@ function ensureImages() {
 
 function updateImage(image, callback) {
     let docker = getConnection();
-    
+
     docker.pull(image, (err, stream) => {
         docker.modem.followProgress(stream, (err, output) => { 
             if (typeof callback === 'function') {
@@ -61,6 +61,77 @@ function updateImage(image, callback) {
     });
 }
 
+let containerDetails = {};
+function downloadVideo(url, source, trigger) {
+    let containerName = 'downloader_' + getUniqueId();
+
+    console.log('Creating ' + containerName + ' for ' + trigger);
+    getConnection().createContainer({
+        Image: 'handspiker2/youtube-dl',
+        name: containerName,
+        WorkingDir: '/data',
+        Cmd: ['-f', 'best', '--add-metadata', '--embed-subs', '--all-subs', '--merge-output-format', 'mkv', '-c', url],
+        HostConfig: {
+            AutoRemove: true,
+            Binds: [
+                downloadPath + ':/data',
+            ],
+        }
+    }).then(function(container) {
+        containerDetails[containerName] = {
+            source,
+            trigger,
+        };
+        return container.start();
+
+    }).catch(function(err) {
+        console.log(err);
+    });
+}
+
+function getContainerStatus(callback) {
+    let docker = getConnection();
+
+    docker.listContainers({all: 'true', filters: { name: ['downloader']}}).then((containerInfo) => {
+        let newStatus = {};
+
+        containerInfo.forEach((container) => {
+            let status = {
+                id: container.Id,
+                state: container.State,
+                image: container.Image,
+                created: container.Created,
+                name: container.Names[0].replace(/^\//, ''),
+                status: container.Status,
+            }
+
+            if (status.name.match(/^downloader\_\d+$/)) {
+                if (containerDetails[status.name]) {
+                    Object.assign(status, containerDetails[status.name]);
+                }
+
+                newStatus[status.name] = status;
+            }
+        });
+
+        for (const detail in containerDetails) {
+            if (!(detail in newStatus)) {
+                delete containerDetails[detail];
+            }
+        }
+
+        if (callback) {
+            callback(newStatus);
+            // callback.apply(null, newStatus);
+        }
+
+
+    }).catch((error) => {
+        console.error(error);
+        callback(false);
+        return;
+    });
+}
 
 let downloadQueue = [];
 function downloadTwitch(username) {
@@ -72,24 +143,7 @@ function downloadTwitch(username) {
         }
 
         url += username;
-
-        console.log('Creating container for ' + username);
-        getConnection().createContainer({
-            Image: 'handspiker2/youtube-dl',
-            name: 'twitch_' + getUniqueId(),
-            WorkingDir: '/data',
-            Cmd: ['-f', 'best', '--add-metadata', '--embed-subs', '--all-subs', '--merge-output-format', 'mkv', '-c', url],
-            HostConfig: {
-                AutoRemove: true,
-                Binds: [
-                    downloadPath + ':/data',
-                ],
-            }
-        }).then(function(container) {
-            return container.start();
-        }).catch(function(err) {
-            console.log(err);
-        });
+        downloadVideo(url, 'twitch', username);
     };
 
     if (hasImage) {
@@ -102,29 +156,10 @@ function downloadTwitch(username) {
 function downloadYoutube(videoId) {
     let downloadCall = function() {
         let url =  'https://www.youtube.com/watch?v=';
-
         url += videoId;
 
-        console.log('Creating container for ' + videoId);
-        getConnection().createContainer({
-            Image: 'handspiker2/youtube-dl',
-            name: 'youtube_' + getUniqueId(),
-            WorkingDir: '/data',
-            Cmd: ['-f', 'best', '--add-metadata', '--embed-subs', '--all-subs', '--merge-output-format', 'mkv', '-c', url],
-            HostConfig: {
-                AutoRemove: true,
-                Binds: [
-                    downloadPath + ':/data',
-                ],
-            }
-        }).then(function(container) {
-            return container.start();
-        }).catch(function(err) {
-            console.log(err);
-        });
+        downloadVideo(url, 'youtube', videoId);
     };
-
-    ensureImages();
 
     if (hasImage) {
         downloadCall();
@@ -179,7 +214,9 @@ if (process.env.MQTT_BROKER) {
         if (topic.indexOf(baseTopic + '/') === 0) {
             let service = topic.replace(baseTopic + '/', '');
 
-            if (service != 'state') {
+            message = message.toString();
+
+            if (service != 'state' && message) {
                 switch (service) {
                     case 'twitch':
                         downloadTwitch(message);
@@ -196,14 +233,35 @@ if (process.env.MQTT_BROKER) {
     });
 }
 
+let lastTick = 0;
 const tickInterval = setInterval(() => {
+    // minutes
+    let time = Math.floor((Date.now() /1000) / 60);
+
     if (mqttClient) {
-        mqttClient.publish(baseTopic + '/state', 'online')
+        getContainerStatus((data) => {
+            mqttClient.publish(baseTopic + '/status', JSON.stringify(data));
+        });
     }
 
-    updateImage('handspiker2/youtube-dl:latest');
+    if (lastTick === time) { // Jobs are scheduled based on minutes but we tick faster for status updates
+        return;
+    }
 
-}, 6 * 60 * 60 * 1000) // 6 hours
+    lastTick = time;
+
+    if (mqttClient) {
+        if (time % 5 == 0) {
+            mqttClient.publish(baseTopic + '/state', 'online');
+        }
+    }
+
+    if (time % 60 == 0 && time % (6 * 60) == 0) {
+        updateImage('handspiker2/youtube-dl:latest');
+    } else if (time % 60 == 0) {
+        ensureImages();
+    }
+}, 20 * 1000) // 20 seconds
 
 function stop() {
     clearInterval(tickInterval);
