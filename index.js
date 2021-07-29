@@ -217,7 +217,6 @@ if (process.env.MQTT_BROKER) {
     mqttClient.on('connect', () => {
         // video-recorder/<service>
         mqttClient.subscribe(baseTopic + '/+');
-        mqttClient.publish(baseTopic + '/state', 'online')
     });
 
     mqttClient.on('message', (topic, message) => {
@@ -236,6 +235,10 @@ if (process.env.MQTT_BROKER) {
                         downloadYoutube(message);
                         break;
 
+                    // Only expose via mqtt assuming the MQTT is a secure-ish comunitication channel
+                    case 'url':
+                        downloadVideo(message, 'url', message);
+                        break;
                 }
             }
         }
