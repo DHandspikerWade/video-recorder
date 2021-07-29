@@ -121,7 +121,10 @@ function getContainerStatus(callback) {
         }
 
         if (callback) {
-            callback(newStatus);
+            callback({
+                count: Object.keys(newStatus).length,
+                containers: newStatus
+            });
             // callback.apply(null, newStatus);
         }
 
@@ -240,6 +243,7 @@ const tickInterval = setInterval(() => {
 
     if (mqttClient) {
         getContainerStatus((data) => {
+            mqttClient.publish(baseTopic + '/state', 'online');
             mqttClient.publish(baseTopic + '/status', JSON.stringify(data));
         });
     }
