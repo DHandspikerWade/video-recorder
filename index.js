@@ -62,15 +62,22 @@ function updateImage(image, callback) {
 }
 
 let containerDetails = {};
-function downloadVideo(url, source, trigger) {
+function downloadVideo(url, source, trigger, includeSubs) {
     let containerName = 'downloader_' + getUniqueId();
+    const youtubeOptions = ['-f', 'best', '--add-metadata', '--embed-subs', '--merge-output-format', 'mkv', '-c',];
+
+    if (typeof includeSubs === 'undefined' || includeSubs) {
+        youtubeOptions.push('--all-subs');
+    }
+
+    youtubeOptions.push(url);
 
     console.log('Creating ' + containerName + ' for ' + trigger);
     getConnection().createContainer({
         Image: 'handspiker2/youtube-dl',
         name: containerName,
         WorkingDir: '/data',
-        Cmd: ['-f', 'best', '--add-metadata', '--embed-subs', '--all-subs', '--merge-output-format', 'mkv', '-c', url],
+        Cmd: youtubeOptions,
         HostConfig: {
             AutoRemove: true,
             Binds: [
@@ -146,7 +153,7 @@ function downloadTwitch(username) {
         }
 
         url += username;
-        downloadVideo(url, 'twitch', username);
+        downloadVideo(url, 'twitch', username, false);
     };
 
     if (hasImage) {
