@@ -1,5 +1,6 @@
 const express = require('express');
 const Docker = require('dockerode');
+const DockerEvents = require('docker-events');
 const mqtt = require('mqtt');
 const app = express();
 const port = 3000;
@@ -143,6 +144,16 @@ function getContainerStatus(callback) {
     });
 }
 
+function updateStatus() {
+    if (!mqttClient) {
+        return false;
+    }
+
+    getContainerStatus((data) => {
+        mqttClient.publish(baseTopic + '/status', JSON.stringify(data));
+    });
+}
+
 let downloadQueue = [];
 function downloadTwitch(username) {
     let downloadCall = function() {
@@ -216,6 +227,8 @@ if (process.env.MQTT_BROKER) {
 
     mqttClient.on('connect', () => {
         // video-recorder/<service>
+        mqttClient.publish(baseTopic + '/state', 'online');
+        updateStatus();
         mqttClient.subscribe(baseTopic + '/+');
     });
 
@@ -246,19 +259,30 @@ if (process.env.MQTT_BROKER) {
     });
 }
 
+const dockerEmitter = new DockerEvents({
+    docker: getConnection(),
+});
+
+const eventUpdate = (message) => {
+    if (message.Type && message.Type === 'container') {
+        if (message.Actor.Attributes.name.indexOf('downloader_') == 0) {
+            console.log(message.Action + ' ' + message.Actor.Attributes.name);
+            updateStatus();
+        }
+    }
+};
+
+dockerEmitter.start();
+dockerEmitter.on('create', eventUpdate);
+dockerEmitter.on('start', eventUpdate);
+dockerEmitter.on('destroy', eventUpdate);
+
 let lastTick = 0;
 const tickInterval = setInterval(() => {
     // minutes
     let time = Math.floor((Date.now() /1000) / 60);
 
-    if (mqttClient) {
-        getContainerStatus((data) => {
-            mqttClient.publish(baseTopic + '/state', 'online');
-            mqttClient.publish(baseTopic + '/status', JSON.stringify(data));
-        });
-    }
-
-    if (lastTick === time) { // Jobs are scheduled based on minutes but we tick faster for status updates
+    if (lastTick === time) { // Jobs are scheduled based on minutes but we tick faster
         return;
     }
 
@@ -267,6 +291,7 @@ const tickInterval = setInterval(() => {
     if (mqttClient) {
         if (time % 5 == 0) {
             mqttClient.publish(baseTopic + '/state', 'online');
+            updateStatus();
         }
     }
 
@@ -278,6 +303,7 @@ const tickInterval = setInterval(() => {
 }, 20 * 1000) // 20 seconds
 
 function stop() {
+    dockerEmitter.stop();
     clearInterval(tickInterval);
     server.close();
     if (mqttClient) {

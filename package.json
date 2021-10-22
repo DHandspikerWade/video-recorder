@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
-    "dockerode": "^3.3.0",
+    "docker-events": "^0.0.2",
+    "dockerode": "^2.0.3",
     "express": "^4.17.1",
     "mqtt": "^4.2.8"
   },
