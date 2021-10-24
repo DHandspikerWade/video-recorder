@@ -6,11 +6,10 @@
   "dependencies": {
     "docker-events": "^0.0.2",
     "dockerode": "^2.0.3",
-    "express": "^4.17.1",
     "mqtt": "^4.2.8"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "update-lock": "docker run -v $(pwd):/app --rm -it node:16-alpine sh -c 'cd /app && npm update'"
   },
   "author": "",
   "license": "ISC"

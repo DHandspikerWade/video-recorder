@@ -1,9 +1,6 @@
-const express = require('express');
 const Docker = require('dockerode');
 const DockerEvents = require('docker-events');
 const mqtt = require('mqtt');
-const app = express();
-const port = 3000;
 
 // Counter to keep each container name unique
 let uniqueId = Math.floor(Math.random() * 10000);
@@ -191,29 +188,6 @@ function downloadYoutube(videoId) {
 
 ensureImages();
 
-app.get('/', (req, res) => {
-    res.send('Hello!');
-});
-
-app.post('/twitch/:username', (req, res) => {
-    if (req.params.username && req.params.username !== 'null') {
-        downloadTwitch(req.params.username);
-    }
-    res.send('Got it!');
-});
-
-app.post('/youtube/:videoID', (req, res) => {
-    if (req.params.videoID && req.params.videoID !== 'null') {
-        downloadYoutube(req.params.videoID);
-    }
-    res.send('Got it!');
-});
-
-const server = app.listen(port, () => {
-    console.log(`Server listening on ${port}`);
-});
-server.timeout = 4000;
-
 let mqttClient;
 let baseTopic = process.env.MQTT_TOPIC || 'video-recorder';
 if (process.env.MQTT_BROKER) {
@@ -226,9 +200,10 @@ if (process.env.MQTT_BROKER) {
     });
 
     mqttClient.on('connect', () => {
-        // video-recorder/<service>
+        console.log('Connected to ' + mqttClient.options.host);
         mqttClient.publish(baseTopic + '/state', 'online');
         updateStatus();
+        // video-recorder/<service>
         mqttClient.subscribe(baseTopic + '/+');
     });
 
@@ -248,7 +223,6 @@ if (process.env.MQTT_BROKER) {
                         downloadYoutube(message);
                         break;
 
-                    // Only expose via mqtt assuming the MQTT is a secure-ish comunitication channel
                     case 'url':
                         downloadVideo(message, 'url', message);
                         break;
@@ -266,7 +240,6 @@ const dockerEmitter = new DockerEvents({
 const eventUpdate = (message) => {
     if (message.Type && message.Type === 'container') {
         if (message.Actor.Attributes.name.indexOf('downloader_') == 0) {
-            console.log(message.Action + ' ' + message.Actor.Attributes.name);
             updateStatus();
         }
     }
@@ -305,7 +278,6 @@ const tickInterval = setInterval(() => {
 function stop() {
     dockerEmitter.stop();
     clearInterval(tickInterval);
-    server.close();
     if (mqttClient) {
         mqttClient.publish(baseTopic + '/state', 'offline');
         mqttClient.end()
