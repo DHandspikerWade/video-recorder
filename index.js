@@ -62,20 +62,24 @@ function updateImage(image, callback) {
 let containerDetails = {};
 function downloadVideo(url, source, trigger, includeSubs) {
     let containerName = 'downloader_' + getUniqueId();
-    const youtubeOptions = ['-f', 'best', '--add-metadata', '--embed-subs', '--merge-output-format', 'mkv', '-c',];
+    const youtubeOptions = ['-f', 'bestvideo+bestaudio/best', '--add-metadata', '--embed-subs', '--merge-output-format', 'mkv', '-c', '--wait-for-video', '10', /*'--downloader', ' '*/];
 
     if (typeof includeSubs === 'undefined' || includeSubs) {
         youtubeOptions.push('--all-subs');
     }
 
-    youtubeOptions.push(url);
+    if (process.env.ALWAYS_MKV > 0) {
+        youtubeOptions.push('--remux-video', 'mkv');
+    }
+
+    youtubeOptions.push(url.trim());
 
     console.log('Creating ' + containerName + ' for ' + trigger);
     getConnection().createContainer({
         Image: 'handspiker2/youtube-dl',
         name: containerName,
         WorkingDir: '/data',
-        Cmd: youtubeOptions,
+        Cmd: youtubeOptions, // Has to be a string array! 
         HostConfig: {
             AutoRemove: true,
             Binds: [
@@ -211,7 +215,7 @@ if (process.env.MQTT_BROKER) {
         if (topic.indexOf(baseTopic + '/') === 0) {
             let service = topic.replace(baseTopic + '/', '');
 
-            message = message.toString();
+            message = message.toString().trim();
 
             if (service != 'state' && message) {
                 switch (service) {
