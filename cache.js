@@ -21,12 +21,17 @@ module.exports = function (connectionStr) {
                     return null;
                 }
 
-                client.expire(PREFIX + key, 60 * 60 * 24, 'GT');
+                client.expire(PREFIX + key, 60 * 60 * 3, 'GT'); // refresh it
                 return value ? JSON.parse(value) : null;
             },
             setCache: async function(key, value) {
                 // Assume after 24 hours nothing is using it
-                return await client.setEx(PREFIX + key, 60 * 60 * 24, JSON.stringify(value));
+                return await client.setEx(PREFIX + key, 60 * 60 * 3, JSON.stringify(value));
+            },
+
+            has: async function(key) {
+                let has = await client.exists(PREFIX + key);
+                return has > 0;
             },
         }
     } else {
@@ -34,6 +39,7 @@ module.exports = function (connectionStr) {
         return {
             getCache: (key) => Promise.resolve(memory.get(key) || null),
             setCache: (key, value) => Promise.resolve(memory.set(key, value) && true),
+            has: (key) => Promise.resolve(memory.has(key)),
         }
     }
 };

@@ -5,19 +5,30 @@ const cache = require('./cache')(process.env.REDIS_CONNECTION || '');
 
 const downloadPath = process.env.DOWNLOAD_PATH || '/tmp'
 
-function getUniqueId() {
-    return new Promise((resolve) => {
+function getUniqueName() {
+    const nameTemplate = 'video_download_';
+    let counter = 0;
 
-        cache.getCache('last_id').then((id) => {
-            if (!id) {
-                id = Math.floor(Math.random() * 10000);
-            }
-    
-            id += 1
-            cache.setCache('last_id', id);
-    
-            resolve(id);
-        });
+    return new Promise((resolve) => {
+        // TODO: I might be massively overthinking promises to create a retry loop for IDs. Revist this!
+
+        let nextID = () => {
+            counter++;
+
+            let name = nameTemplate + counter;
+
+            cache.has(name).then((exists) => {
+                if (exists) {
+                    nextID();
+                } else {
+                    cache.setCache(name, {}); // Reserve the name
+                    resolve(name);
+                    return;
+                }
+            });
+        };
+
+        nextID();
     });
 }
 
@@ -70,8 +81,7 @@ function updateImage(image, callback) {
 }
 
 async function downloadVideo(url, source, trigger, includeSubs) {
-    let id = await  getUniqueId();
-    let containerName = 'download_' + source + '_' + id;
+    let containerName = await getUniqueName();
     const youtubeOptions = ['-f', 'bestvideo+bestaudio/best', '--add-metadata', '--embed-subs', '--merge-output-format', 'mkv', '-c', '--wait-for-video', '10'];
 
     if (typeof includeSubs === 'undefined' || includeSubs) {
