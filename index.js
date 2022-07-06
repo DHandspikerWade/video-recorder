@@ -71,8 +71,8 @@ function updateImage(image, callback) {
 
 async function downloadVideo(url, source, trigger, includeSubs) {
     let id = await  getUniqueId();
-    let containerName = 'downloader_' + id;
-    const youtubeOptions = ['-f', 'bestvideo+bestaudio/best', '--add-metadata', '--embed-subs', '--merge-output-format', 'mkv', '-c', '--wait-for-video', '10', /*'--downloader', ' '*/];
+    let containerName = 'download_' + source + '_' + id;
+    const youtubeOptions = ['-f', 'bestvideo+bestaudio/best', '--add-metadata', '--embed-subs', '--merge-output-format', 'mkv', '-c', '--wait-for-video', '10'];
 
     if (typeof includeSubs === 'undefined' || includeSubs) {
         youtubeOptions.push('--all-subs');
@@ -95,6 +95,9 @@ async function downloadVideo(url, source, trigger, includeSubs) {
             Binds: [
                 downloadPath + ':/data',
             ],
+        },
+        Labels: {
+            'com.spikedhand.video-recorder': 'true'
         }
     }).then(function(container) {
         cache.setCache(containerName, {
@@ -112,7 +115,7 @@ async function downloadVideo(url, source, trigger, includeSubs) {
 function getContainerStatus(callback) {
     let docker = getConnection();
 
-    docker.listContainers({all: 'true', filters: { name: ['downloader']}}).then((containerInfo) => {
+    docker.listContainers({all: 'true', filters: { label: ['com.spikedhand.video-recorder']}}).then((containerInfo) => {
         let newStatus = new Map();
         let cacheCalls = [];
 
@@ -126,7 +129,7 @@ function getContainerStatus(callback) {
                 status: container.Status,
             }
 
-            if (status.name.match(/^downloader\_\d+$/)) {
+            if (status.name) {
                 cacheCalls[cacheCalls.length] = cache.getCache(status.name).then((cachedStatus) => {
                     if (cachedStatus) {
                         Object.assign(status, cachedStatus);
@@ -249,7 +252,7 @@ const dockerEmitter = new DockerEvents({
 
 const eventUpdate = (message) => {
     if (message.Type && message.Type === 'container') {
-        if (message.Actor.Attributes.name.indexOf('downloader_') == 0) {
+        if ('com.spikedhand.video-recorder' in message.Actor.Attributes) {
             updateStatus();
         }
     }
