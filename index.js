@@ -1,14 +1,24 @@
 const Docker = require('dockerode');
 const DockerEvents = require('docker-events');
 const mqtt = require('mqtt');
-
-// Counter to keep each container name unique
-let uniqueId = Math.floor(Math.random() * 10000);
+const cache = require('./cache')(process.env.REDIS_CONNECTION || '');
 
 const downloadPath = process.env.DOWNLOAD_PATH || '/tmp'
 
 function getUniqueId() {
-    return ++uniqueId;
+    return new Promise((resolve) => {
+
+        cache.getCache('last_id').then((id) => {
+            if (!id) {
+                id = Math.floor(Math.random() * 10000);
+            }
+    
+            id += 1
+            cache.setCache('last_id', id);
+    
+            resolve(id);
+        });
+    });
 }
 
 function getConnection() {
@@ -59,9 +69,9 @@ function updateImage(image, callback) {
     });
 }
 
-let containerDetails = {};
-function downloadVideo(url, source, trigger, includeSubs) {
-    let containerName = 'downloader_' + getUniqueId();
+async function downloadVideo(url, source, trigger, includeSubs) {
+    let id = await  getUniqueId();
+    let containerName = 'downloader_' + id;
     const youtubeOptions = ['-f', 'bestvideo+bestaudio/best', '--add-metadata', '--embed-subs', '--merge-output-format', 'mkv', '-c', '--wait-for-video', '10', /*'--downloader', ' '*/];
 
     if (typeof includeSubs === 'undefined' || includeSubs) {
@@ -87,10 +97,11 @@ function downloadVideo(url, source, trigger, includeSubs) {
             ],
         }
     }).then(function(container) {
-        containerDetails[containerName] = {
+        cache.setCache(containerName, {
             source,
             trigger,
-        };
+        });
+
         return container.start();
 
     }).catch(function(err) {
@@ -102,7 +113,8 @@ function getContainerStatus(callback) {
     let docker = getConnection();
 
     docker.listContainers({all: 'true', filters: { name: ['downloader']}}).then((containerInfo) => {
-        let newStatus = {};
+        let newStatus = new Map();
+        let cacheCalls = [];
 
         containerInfo.forEach((container) => {
             let status = {
@@ -115,28 +127,22 @@ function getContainerStatus(callback) {
             }
 
             if (status.name.match(/^downloader\_\d+$/)) {
-                if (containerDetails[status.name]) {
-                    Object.assign(status, containerDetails[status.name]);
-                }
+                cacheCalls[cacheCalls.length] = cache.getCache(status.name).then((cachedStatus) => {
+                    if (cachedStatus) {
+                        Object.assign(status, cachedStatus);
+                    }
 
-                newStatus[status.name] = status;
+                    newStatus.set(status.name, status);
+                });
             }
         });
 
-        for (const detail in containerDetails) {
-            if (!(detail in newStatus)) {
-                delete containerDetails[detail];
-            }
-        }
-
-        if (callback) {
+        Promise.all(cacheCalls).then(() => {
             callback({
-                count: Object.keys(newStatus).length,
-                containers: newStatus
+                count: newStatus.size,
+                containers: Object.fromEntries(newStatus.entries()),
             });
-            // callback.apply(null, newStatus);
-        }
-
+        });
 
     }).catch((error) => {
         console.error(error);
