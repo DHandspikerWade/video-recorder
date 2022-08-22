@@ -92,6 +92,11 @@ async function downloadVideo(url, source, trigger, includeSubs) {
         youtubeOptions.push('--remux-video', 'mkv');
     }
 
+    // https://github.com/yt-dlp/yt-dlp/issues/4280
+    if (url.indexOf('twitch') !== -1) {
+        youtubeOptions.push('--fixup', 'never');
+    }
+
     youtubeOptions.push(url.trim());
 
     console.log('Creating ' + containerName + ' for ' + trigger);
