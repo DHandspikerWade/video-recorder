@@ -11,6 +11,6 @@ steps:
     password: 
       from_secret: docker_password
     registry: registry.gitlab.com
-    repo: dhandspikerwade/video-recorder
+    repo: registry.gitlab.com/dhandspikerwade/video-recorder
     tags: latest
     dry_run: false
