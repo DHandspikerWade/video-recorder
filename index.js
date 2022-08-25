@@ -118,6 +118,7 @@ async function downloadVideo(url, source, trigger, includeSubs) {
         cache.setCache(containerName, {
             source,
             trigger,
+            parameters: youtubeOptions,
         });
 
         return container.start();
