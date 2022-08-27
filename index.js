@@ -80,9 +80,11 @@ function updateImage(image, callback) {
     });
 }
 
-async function downloadVideo(url, source, trigger, includeSubs) {
+async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
     let containerName = await getUniqueName();
-    const youtubeOptions = ['-f', 'bestvideo+bestaudio/best', '--add-metadata', '--embed-subs', '--merge-output-format', 'mkv', '-c', '--wait-for-video', '10'];
+    const youtubeOptions = ['-f', 'bestvideo+bestaudio/best', '--add-metadata', '--embed-subs', '--merge-output-format', 'mkv', '-c', '--wait-for-video', '30'];
+
+    subdirectory = subdirectory || '';
 
     if (typeof includeSubs === 'undefined' || includeSubs) {
         youtubeOptions.push('--all-subs');
@@ -103,7 +105,7 @@ async function downloadVideo(url, source, trigger, includeSubs) {
     getConnection().createContainer({
         Image: 'handspiker2/youtube-dl',
         name: containerName,
-        WorkingDir: '/data',
+        WorkingDir: '/data/' + subdirectory,
         Cmd: youtubeOptions, // Has to be a string array! 
         HostConfig: {
             AutoRemove: true,
@@ -215,6 +217,55 @@ function downloadYoutube(videoId) {
     }
 }
 
+function handleService(serviceName, message, directory) {
+    if (serviceName && message) {
+        switch (serviceName) {
+            case 'twitch':
+                downloadTwitch(message);
+                return true;
+
+            case 'youtube':
+                downloadYoutube(message);
+                return true;
+
+            case 'url':
+                downloadVideo(message, 'url', message, directory);
+                return true;
+        }
+
+        
+        if (serviceName.indexOf('directory/') === 0) {
+            serviceName = serviceName.substring(10);
+            let details = serviceName.split('/', 2);
+
+            getConnection().createContainer({
+                Image: 'handspiker2/youtube-dl',
+                name: 'directory_create_' + Date.now(),
+                WorkingDir: '/data/',
+                Cmd: ['-p', details[0]],
+                HostConfig: {
+                    AutoRemove: true,
+                    Binds: [
+                        downloadPath + ':/data',
+                    ],
+                },
+                Entrypoint: 'mkdir'
+            }).then(function(container) {
+                return container.start();
+            }).then(function(container) {
+                setTimeout(() => handleService(details[1], message, details[0]), 500);
+            }).catch(function(err) {
+                console.log(err);
+            });
+
+            
+            return 
+        }
+    }
+
+    return false;
+} 
+
 ensureImages();
 
 let mqttClient;
@@ -234,6 +285,7 @@ if (process.env.MQTT_BROKER) {
         updateStatus();
         // video-recorder/<service>
         mqttClient.subscribe(baseTopic + '/+');
+        mqttClient.subscribe(baseTopic + '/directory/+/url');
     });
 
     mqttClient.on('message', (topic, message) => {
@@ -241,22 +293,7 @@ if (process.env.MQTT_BROKER) {
             let service = topic.replace(baseTopic + '/', '');
 
             message = message.toString().trim();
-
-            if (service != 'state' && message) {
-                switch (service) {
-                    case 'twitch':
-                        downloadTwitch(message);
-                        break;
-
-                    case 'youtube':
-                        downloadYoutube(message);
-                        break;
-
-                    case 'url':
-                        downloadVideo(message, 'url', message);
-                        break;
-                }
-            }
+            handleService(service, message);
         }
         
     });

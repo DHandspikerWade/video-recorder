@@ -14,3 +14,18 @@ steps:
     repo: registry.gitlab.com/dhandspikerwade/video-recorder
     tags: latest
     dry_run: false
+  when:
+    branch:
+    - master
+
+# Just test build branches
+- name: docker  
+  image: plugins/docker
+  settings:
+    repo: registry.gitlab.com/dhandspikerwade/video-recorder
+    tags: latest
+    dry_run: true
+  when:
+    branch:
+      exclude:
+      - master
