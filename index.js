@@ -229,7 +229,7 @@ function handleService(serviceName, message, directory) {
                 return true;
 
             case 'url':
-                downloadVideo(message, 'url', message, directory);
+                downloadVideo(message, 'url', message, true, directory);
                 return true;
         }
 
