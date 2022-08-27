@@ -183,7 +183,7 @@ function updateStatus() {
 }
 
 let downloadQueue = [];
-function downloadTwitch(username) {
+function downloadTwitch(username, directory) {
     let downloadCall = function() {
         let url =  'https://www.twitch.tv/';
 
@@ -192,7 +192,7 @@ function downloadTwitch(username) {
         }
 
         url += username;
-        downloadVideo(url, 'twitch', username, false);
+        downloadVideo(url, 'twitch', username, false, directory);
     };
 
     if (hasImage) {
@@ -202,12 +202,12 @@ function downloadTwitch(username) {
     }
 }
 
-function downloadYoutube(videoId) {
+function downloadYoutube(videoId, directory) {
     let downloadCall = function() {
         let url =  'https://www.youtube.com/watch?v=';
         url += videoId;
 
-        downloadVideo(url, 'youtube', videoId);
+        downloadVideo(url, 'youtube', videoId, true, directory);
     };
 
     if (hasImage) {
@@ -218,14 +218,16 @@ function downloadYoutube(videoId) {
 }
 
 function handleService(serviceName, message, directory) {
+    directory = directory || '';
+
     if (serviceName && message) {
         switch (serviceName) {
             case 'twitch':
-                downloadTwitch(message);
+                downloadTwitch(message, directory);
                 return true;
 
             case 'youtube':
-                downloadYoutube(message);
+                downloadYoutube(message, directory);
                 return true;
 
             case 'url':
@@ -235,31 +237,41 @@ function handleService(serviceName, message, directory) {
 
         
         if (serviceName.indexOf('directory/') === 0) {
-            serviceName = serviceName.substring(10);
-            let details = serviceName.split('/', 2);
+            let parts = serviceName.substring(10).split('/');
 
-            getConnection().createContainer({
-                Image: 'handspiker2/youtube-dl',
-                name: 'directory_create_' + Date.now(),
-                WorkingDir: '/data/',
-                Cmd: ['-p', details[0]],
-                HostConfig: {
-                    AutoRemove: true,
-                    Binds: [
-                        downloadPath + ':/data',
-                    ],
-                },
-                Entrypoint: 'mkdir'
-            }).then(function(container) {
-                return container.start();
-            }).then(function(container) {
-                setTimeout(() => handleService(details[1], message, details[0]), 500);
-            }).catch(function(err) {
-                console.log(err);
-            });
+            if (parts.length > 1) {
+                let newDirectory = directory;
+                if (newDirectory) {
+                    newDirectory += '/';
+                }
 
-            
-            return 
+                newDirectory += parts[0];
+
+                getConnection().createContainer({
+                    Image: 'handspiker2/youtube-dl',
+                    name: 'directory_create_' + Date.now(),
+                    WorkingDir: '/data/',
+                    Cmd: ['-p', newDirectory],
+                    HostConfig: {
+                        AutoRemove: true,
+                        Binds: [
+                            downloadPath + ':/data',
+                        ],
+                    },
+                    Entrypoint: 'mkdir'
+                }).then(function(container) {
+                    return container.start();
+                }).then(function(container) {
+                    parts.shift();
+                    let newService = parts.join('/');
+                    setTimeout(() => handleService(newService, message, newDirectory), 500);
+                }).catch(function(err) {
+                    console.log(err);
+                });
+
+                
+                return true;
+            }
         }
     }
 
@@ -284,8 +296,8 @@ if (process.env.MQTT_BROKER) {
         mqttClient.publish(baseTopic + '/state', 'online');
         updateStatus();
         // video-recorder/<service>
-        mqttClient.subscribe(baseTopic + '/+');
-        mqttClient.subscribe(baseTopic + '/directory/+/url');
+        mqttClient.subscribe(baseTopic + '/#');
+        // mqttClient.subscribe(baseTopic + '/directory/+/url');
     });
 
     mqttClient.on('message', (topic, message) => {
@@ -293,7 +305,9 @@ if (process.env.MQTT_BROKER) {
             let service = topic.replace(baseTopic + '/', '');
 
             message = message.toString().trim();
-            handleService(service, message);
+            if (service !== 'status') {
+                handleService(service, message);
+            }
         }
         
     });
