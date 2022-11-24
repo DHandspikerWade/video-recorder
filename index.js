@@ -82,7 +82,7 @@ function updateImage(image, callback) {
 
 async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
     let containerName = await getUniqueName();
-    const youtubeOptions = ['-f', 'bestvideo+bestaudio/best', '--add-metadata', '--embed-subs', '--merge-output-format', 'mkv', '-c'];
+    const youtubeOptions = ['-f', 'bestvideo+bestaudio/best', '--add-metadata', '--embed-subs', '--merge-output-format', 'mkv', '-c', '--wait-for-video', '60',];
 
     subdirectory = subdirectory || '';
 
