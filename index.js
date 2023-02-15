@@ -16,7 +16,6 @@ function getUniqueName() {
             counter++;
 
             let name = nameTemplate + counter;
-
             cache.has(name).then((exists) => {
                 if (exists) {
                     nextID();
@@ -94,9 +93,17 @@ async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
         youtubeOptions.push('--remux-video', 'mkv');
     }
 
-    // https://github.com/yt-dlp/yt-dlp/issues/4280
     if (url.indexOf('twitch') !== -1) {
+        // https://github.com/yt-dlp/yt-dlp/issues/4280
         youtubeOptions.push('--fixup', 'never');
+
+        // https://github.com/yt-dlp/yt-dlp/issues/5747
+        ['--all-subs', '--embed-subs'].forEach(function (option) {
+            let index = youtubeOptions.indexOf(option);
+            if (index !== -1) {
+                youtubeOptions.splice(index, 1);
+            }
+        });
     }
 
     youtubeOptions.push(url.trim());
