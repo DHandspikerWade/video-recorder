@@ -79,6 +79,22 @@ function updateImage(image, callback) {
     });
 }
 
+function checkCookieFileExists() {
+    return new Promise((resolve, reject) => {
+        // Reuse the same image we run on
+        getConnection().run('node:16-alpine', ['sh', '-c', 'test -f /data/cookies.txt'],  process.stdout, {
+            HostConfig: {
+                AutoRemove: true,
+                Binds: [
+                    downloadPath + ':/data',
+                ],
+            }
+        }, function (err, data, container) {
+            resolve(data.StatusCode == 0);
+        });
+    });
+}
+
 async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
     let containerName = await getUniqueName();
     const youtubeOptions = ['-f', 'bestvideo+bestaudio/best', '--add-metadata', '--embed-subs', '--merge-output-format', 'mkv', '-c', '--wait-for-video', '60',];
@@ -106,34 +122,40 @@ async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
         });
     }
 
-    youtubeOptions.push(url.trim());
-
-    console.log('Creating ' + containerName + ' for ' + trigger);
-    getConnection().createContainer({
-        Image: 'handspiker2/youtube-dl',
-        name: containerName,
-        WorkingDir: '/data/' + subdirectory,
-        Cmd: youtubeOptions, // Has to be a string array! 
-        HostConfig: {
-            AutoRemove: true,
-            Binds: [
-                downloadPath + ':/data',
-            ],
-        },
-        Labels: {
-            'com.spikedhand.video-recorder': 'true'
+    checkCookieFileExists().then((hasCookie) => {
+        if (hasCookie) {
+            youtubeOptions.push('--cookies', '/data/cookies.txt');
         }
-    }).then(function(container) {
-        cache.setCache(containerName, {
-            source,
-            trigger,
-            parameters: youtubeOptions,
+
+        youtubeOptions.push(url.trim());
+
+        console.log('Creating ' + containerName + ' for ' + trigger + (hasCookie ? ' (with cookies)' : ''));
+        getConnection().createContainer({
+            Image: 'handspiker2/youtube-dl',
+            name: containerName,
+            WorkingDir: '/data/' + subdirectory,
+            Cmd: youtubeOptions, // Has to be a string array! 
+            HostConfig: {
+                AutoRemove: true,
+                Binds: [
+                    downloadPath + ':/data',
+                ],
+            },
+            Labels: {
+                'com.spikedhand.video-recorder': 'true'
+            }
+        }).then(function(container) {
+            cache.setCache(containerName, {
+                source,
+                trigger,
+                parameters: youtubeOptions,
+            });
+    
+            return container.start();
+    
+        }).catch(function(err) {
+            console.log(err);
         });
-
-        return container.start();
-
-    }).catch(function(err) {
-        console.log(err);
     });
 }
 
