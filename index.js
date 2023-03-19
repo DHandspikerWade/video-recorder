@@ -90,7 +90,10 @@ function checkCookieFileExists() {
                 ],
             }
         }, function (err, data, container) {
-            resolve(data.StatusCode == 0);
+            if (err) {
+                console.error(err);
+            }
+            resolve(data && data.StatusCode == 0);
         });
     });
 }
