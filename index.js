@@ -82,7 +82,8 @@ function updateImage(image, callback) {
 function checkCookieFileExists() {
     return new Promise((resolve, reject) => {
         // Reuse the same image we run on
-        getConnection().run('node:16-alpine', ['sh', '-c', 'test -f /data/cookies.txt'],  process.stdout, {
+        getConnection().run('handspiker2/youtube-dl', ['-c', 'test -f /data/cookies.txt'],  process.stdout, {
+            Entrypoint: 'sh',
             HostConfig: {
                 AutoRemove: true,
                 Binds: [
