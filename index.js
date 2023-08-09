@@ -113,11 +113,22 @@ async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
         youtubeOptions.push('--remux-video', 'mkv');
     }
 
+    let ignoreChat = false;
     if (url.indexOf('twitch') !== -1) {
         // https://github.com/yt-dlp/yt-dlp/issues/4280
         youtubeOptions.push('--fixup', 'never');
 
         // https://github.com/yt-dlp/yt-dlp/issues/5747
+        ignoreChat = true;
+    }
+
+    if (url.indexOf('youtube') !== -1) {
+        // TODO: Youtube live chat and saving video is no longer parallel action causing video to be missed by waiting until chat is done before downloading video
+        // Hotfix
+        ignoreChat = true;
+    }
+
+    if (ignoreChat) {
         ['--all-subs', '--embed-subs'].forEach(function (option) {
             let index = youtubeOptions.indexOf(option);
             if (index !== -1) {
