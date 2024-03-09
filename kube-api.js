@@ -35,7 +35,7 @@ function addObjectMetadata(object, parameters) {
     object.metadata.labels = object.metadata.labels || {};
 
     if (!object.metadata.annotations['video-recorder.spikedhand.com/ttl']) {
-        // Default to 72 hours. It something is still actually running after 100 hours, something has likely gone very wrong
+        // Default to 100 hours. It something is still actually running after 100 hours, something has likely gone very wrong
         object.metadata.annotations['video-recorder.spikedhand.com/ttl'] = (60 * 60 * 100) + ''; 
     }
 
@@ -78,7 +78,7 @@ async function getLogs(job) {
         const response = await k8sCoreApi.readNamespacedPodLog(pod.metadata.name, pod.metadata.namespace, 'task', false, undefined, undefined, undefined, undefined, undefined, 50000);
 
 
-        // The k8s library seems to be automatically converting JSON into objects without clear way to disable it. I want strings for consistentcy 
+        // The k8s library seems to be automatically convert JSON into objects without clear way to disable it. I want strings for consistentcy 
         if (typeof response.body !== 'string') {
             return JSON.stringify(response.body);
         }
