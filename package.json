@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
+    "@kubernetes/client-node": "^0.20.0",
     "docker-events": "^0.0.2",
     "dockerode": "^2.0.3",
     "mqtt": "^4.2.8",

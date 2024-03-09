@@ -18,6 +18,21 @@ steps:
     branch:
     - master
 
+- name: Build & publish Experimental
+  image: plugins/docker
+  settings:
+    username:
+      from_secret: docker_username
+    password: 
+      from_secret: docker_password
+    registry: registry.gitlab.com
+    repo: registry.gitlab.com/dhandspikerwade/video-recorder
+    tags: kube-experimental
+    dry_run: false
+  when:
+    branch:
+    - master
+
 # Just test build branches
 - name: Build  
   image: plugins/docker
