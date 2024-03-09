@@ -78,7 +78,7 @@ async function getLogs(job) {
         const response = await k8sCoreApi.readNamespacedPodLog(pod.metadata.name, pod.metadata.namespace, 'task', false, undefined, undefined, undefined, undefined, undefined, 50000);
 
 
-        // The k8s library seems to be automatically convert JSON into objects without clear way to disable it. I want strings for consistentcy 
+        // The k8s library seems to be automatically converting JSON into objects without clear way to disable it. I want strings for consistentcy 
         if (typeof response.body !== 'string') {
             return JSON.stringify(response.body);
         }
@@ -277,8 +277,22 @@ module.exports = {
         let response = await k8sBatchApi.listNamespacedJob(NAMESPACE, undefined, false, undefined, undefined, 'video-recorder.spikedhand.com/type')
         if (response.body.items) {
             response.body.items.forEach((job) => {
-                // Delete any leftover task older than a day
-                if (Date.parse(job.metadata.creationTimestamp) < (Date.now() / 1000) - (24 * 60 * 60)) {
+                let ttl; 
+                if (!('video-recorder.spikedhand.com/ttl' in job.metadata.annotations)) {
+                    // Assume a day if some bug creates a job without a ttl
+                    ttl = 24 * 60 * 60;
+                } else {
+                    ttl = job.metadata.annotations['video-recorder.spikedhand.com/ttl'];
+                }
+
+                let clean = false;
+
+                if ((Date.parse(job.metadata.creationTimestamp) + (ttl * 1000)) < Date.now()) {
+                    console.log('should delte');
+                    clean = true;
+                }
+
+                if (clean) {
                     k8sBatchApi.deleteNamespacedJob(job.metadata.name, NAMESPACE);
                 }
             });

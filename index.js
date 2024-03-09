@@ -182,6 +182,8 @@ if (process.env.MQTT_BROKER) {
     });
 }
 
+kubeClient.garbageCollect();
+
 let lastTick = 0;
 const tickInterval = setInterval(() => {
     // minutes
