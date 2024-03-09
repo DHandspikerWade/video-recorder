@@ -31,7 +31,7 @@ steps:
     dry_run: false
   when:
     branch:
-    - master
+    - kube-experimental
 
 # Just test build branches
 - name: Build  
@@ -44,3 +44,4 @@ steps:
     branch:
       exclude:
       - master
+      - kube-experimental
