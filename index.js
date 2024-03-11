@@ -325,6 +325,7 @@ function handleService(serviceName, message, directory) {
 ensureImages();
 
 let mqttClient;
+const alreadyRequested = new Set();
 let baseTopic = process.env.MQTT_TOPIC || 'video-recorder';
 if (process.env.MQTT_BROKER) {
     mqttClient = mqtt.connect(process.env.MQTT_BROKER, {
@@ -346,6 +347,12 @@ if (process.env.MQTT_BROKER) {
 
     mqttClient.on('message', (topic, message) => {
         if (topic.indexOf(baseTopic + '/') === 0) {
+            // Debounce
+            if (alreadyRequested.has(topic + message)) {
+                return;
+            }
+
+            alreadyRequested.add(topic + message);
             let service = topic.replace(baseTopic + '/', '');
 
             message = message.toString().trim();
@@ -384,6 +391,7 @@ const tickInterval = setInterval(() => {
     }
 
     lastTick = time;
+    alreadyRequested.clear();
 
     if (mqttClient) {
         if (time % 5 == 0) {
