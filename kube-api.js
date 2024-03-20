@@ -218,7 +218,7 @@ function statusUpdate() {
 // TODO: Remove for proper event driven updates
 const intervalId = setInterval(() => {
     statusUpdate();
-}, 100 * 1000);
+}, 10 * 1000);
 
 // END TODO
 
