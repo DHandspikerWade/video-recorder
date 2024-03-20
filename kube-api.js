@@ -288,7 +288,6 @@ module.exports = {
                 let clean = false;
 
                 if ((Date.parse(job.metadata.creationTimestamp) + (ttl * 1000)) < Date.now()) {
-                    console.log('should delte');
                     clean = true;
                 }
 
