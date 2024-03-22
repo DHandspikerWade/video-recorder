@@ -156,7 +156,7 @@ function runCommand(command, options, priority, workingDir, metadata, prefix) {
                                 clearInterval(intervalId);
 
                                 getLogs(job).then((output) => {
-                                    k8sBatchApi.deleteNamespacedJob(job.metadata.name, job.metadata.namespace);
+                                    removeJob(job.metadata.name);
                                     statusUpdate();
                                     (conditionType === 'Complete' ? resolve : reject)(output);
                                 });
@@ -214,6 +214,13 @@ function statusUpdate() {
     });
 }
 
+async function removeJob(name) {
+    // kubectl adds a policy to delete pods orphaned by jobs. API doesn't do anything by default.
+    // Background because, don't really care when clean-up happens. 
+    const propagationPolicy = 'Background';
+
+    k8sBatchApi.deleteNamespacedJob(name, NAMESPACE, 'false', undefined, undefined, undefined, propagationPolicy);
+}
 
 // TODO: Remove for proper event driven updates
 const intervalId = setInterval(() => {
@@ -223,12 +230,6 @@ const intervalId = setInterval(() => {
 // END TODO
 
 module.exports = {
-    test: function() {
-        runCommand('yt-dlp', ['https://www.youtube.com/watch?v=POj_vD44Hwc']).then( (text) => {
-            console.log(text);
-        });
-    },
-
     downloadVideo: async function(url,  source, trigger, ytOptions, outputDirectory, isLive) {
         let options = ytOptions || [];
         options.push(url);
@@ -292,7 +293,7 @@ module.exports = {
                 }
 
                 if (clean) {
-                    k8sBatchApi.deleteNamespacedJob(job.metadata.name, NAMESPACE);
+                    removeJob(job.metadata.name);
                 }
             });
         }
