@@ -14,6 +14,7 @@ const CONTAINER_IMAGE = 'handspiker2/youtube-dl';
 const PVC_NAME = 'recorded-video-pvc'; // TODO: Make a parameter or config option
 const PRIORITY_CLASS_HIGH = 'realtime'; // TODO: Make a parameter or config option
 const PRIORITY_CLASS_LOW = 'whenever-you-get-chance'; // TODO: Make a parameter or config option
+const PRIORITY_CLASS_METADATA = PRIORITY_CLASS_LOW; // TODO: Make a parameter or config option
 
 const TASK_TYPE_DOWNLOAD = 'download';
 
@@ -251,7 +252,7 @@ module.exports = {
     },
     getVideoMetadata: async function(url) {
         try {
-            let output = await runCommand('yt-dlp', ['-q', '--no-warnings', '-J', url]);
+            let output = await runCommand('yt-dlp', ['-q', '--no-warnings', '-J', url], PRIORITY_CLASS_METADATA);
             return JSON.parse(output);
         } catch (e) {
             console.error(e);
