@@ -7,9 +7,7 @@ const kubeClient = require('./kube-api');
 const downloadPath = process.env.DOWNLOAD_PATH || '/tmp'
 
 function checkCookieFileExists() {
-    return new Promise((resolve, reject) => {
-        resolve(false);
-    });
+    return kubeClient.fileExists('cookies.txt');
 }
 
 async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {

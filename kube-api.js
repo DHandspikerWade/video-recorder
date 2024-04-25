@@ -90,7 +90,7 @@ async function getLogs(job) {
     return '';
 }
 
-function runCommand(command, options, priority, workingDir, metadata, prefix) {
+function runCommand(command, options, priority, workingDir, metadata, prefix, backoffLimit) {
     const newJob = {
         metadata: {
             generateName: prefix || 'asynctask-',
@@ -101,7 +101,7 @@ function runCommand(command, options, priority, workingDir, metadata, prefix) {
         spec: {
             completions: 1,
             parallelism: 1,
-            backoffLimit: 5,
+            backoffLimit: backoffLimit || 5,
             template:{
                 spec: {
                     restartPolicy: 'Never',
@@ -269,6 +269,14 @@ module.exports = {
         }
     },
 
+    fileExists: async function(file) {
+        try {
+            await runCommand('test', ['-f', file], null, null, {}, 'file-check', 1);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    },
     /**
      * @param callable
      */
