@@ -7,7 +7,10 @@ const k8sContext = kc.getContextObject(kc.getCurrentContext());
 const k8sCoreApi = kc.makeApiClient(k8s.CoreV1Api);
 const k8sBatchApi = kc.makeApiClient(k8s.BatchV1Api);
 
-const callbacks = new Set();
+const watcher = new k8s.Watch(kc);
+
+const internalWaiting = new Map();
+const statusCallbacks = new Set();
 
 const NAMESPACE = k8sContext.namespace || 'default';
 const CONTAINER_IMAGE = 'handspiker2/youtube-dl';
@@ -30,6 +33,23 @@ const DEFAULT_RESOURCE_LIMITS = {
     }
 };
 
+function addInternalWaiter(uid, type, callback) {
+    if (!internalWaiting.has(uid)) {
+        internalWaiting.set(uid, {});
+    }
+
+    if (type == 'DELETED') {
+        console.warn('[warn] "DELETED" event handler is undefined behavior due to scheduler. Job object might not exist at runtime.');
+    }
+
+    // make every event type an array if I ever need multiple. 
+    let handler = internalWaiting.get(uid);
+    if (!(type in handler)) {
+        handler[type] = [];
+    }
+
+    handler[type].push(callback);
+}
 
 function addObjectMetadata(object, parameters) {
     object.metadata.annotations = object.metadata.annotations || {};
@@ -90,6 +110,22 @@ async function getLogs(job) {
     return '';
 }
 
+function getStatusFromJob(job) {
+    let status = false;
+    if (job.status.conditions) {
+        for (let i = 0; i < job.status.conditions.length; i++) {
+            const conditionType = job.status.conditions[i].type;
+            
+            if (conditionType === 'Failed' || conditionType === 'Complete') {
+                status = conditionType;
+                break;
+            }
+        }
+    }
+
+    return status;
+}
+
 function runCommand(command, options, priority, workingDir, metadata, prefix, backoffLimit) {
     const newJob = {
         metadata: {
@@ -143,31 +179,21 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
 
     return new Promise((resolve, reject) => {
         k8sBatchApi.createNamespacedJob(NAMESPACE, newJob).then((response) => {
-            let job = response.body;
+            let wait = (job, phase) => {
+                const status = getStatusFromJob(job);
+                if (status) {
+                    getLogs(job).then((output) => {
+                        removeJob(job.metadata.name);
+                        (status === 'Complete' ? resolve : reject)(output);
+                    });
+                }
+            };
 
-            // Wait until the command is complete
-            let intervalId = setInterval(() => {
-                k8sBatchApi.readNamespacedJobStatus(job.metadata.name, job.metadata.namespace).then((response) => {
+            addInternalWaiter(response.body.metadata.uid, 'MODIFIED', wait);
 
-                    if (response.body.status.conditions) {
-                        for (let i = 0; i < response.body.status.conditions.length; i++) {
-                            const conditionType = response.body.status.conditions[i].type;
-                            
-                            if (conditionType === 'Failed' || conditionType === 'Complete') {
-                                clearInterval(intervalId);
-
-                                getLogs(job).then((output) => {
-                                    removeJob(job.metadata.name);
-                                    statusUpdate();
-                                    (conditionType === 'Complete' ? resolve : reject)(output);
-                                });
-                            }
-                        }
-                    }
-                });
-            }, 500);
-        }).catch(function () {
-            console.log(arguments);
+        }).catch(function (ex) {
+            console.error("Caught exception: ");
+            console.error(ex.message);
         });
     });
 }
@@ -211,7 +237,7 @@ async function getAllDownloads() {
 
 function statusUpdate() {
     getAllDownloads().then((downloads) => {
-        callbacks.forEach((handler) => handler(downloads));
+        statusCallbacks.forEach((handler) => handler(downloads));
     });
 }
 
@@ -219,14 +245,55 @@ async function removeJob(name) {
     // kubectl adds a policy to delete pods orphaned by jobs. API doesn't do anything by default.
     // Background because, don't really care when clean-up happens. 
     const propagationPolicy = 'Background';
-
     k8sBatchApi.deleteNamespacedJob(name, NAMESPACE, 'false', undefined, undefined, undefined, propagationPolicy);
 }
 
-// TODO: Remove for proper event driven updates
-const intervalId = setInterval(() => {
-    statusUpdate();
-}, 10 * 1000);
+function startListening() {
+    // let updateTimeoutId;
+
+    watcher.watch('/apis/batch/v1/jobs', {"labelSelector": "video-recorder.spikedhand.com/type"}, function(status, job, event) {
+        if (job.metadata.uid && internalWaiting.has(job.metadata.uid)) {
+            let handler = internalWaiting.get(job.metadata.uid);
+            if (status in handler) {
+                handler[status].forEach((callback) => { callback(job, status); });
+            }
+        }
+        
+        switch(status) {
+            case "DELETED":
+                if (job.metadata.uid && internalWaiting.has(job.metadata.uid)) {
+                    // GC handlers once a job is deleted
+                    internalWaiting.delete(job.metadata.uid);
+                }
+
+                // no break
+
+            case "MODIFIED":
+            case "ADDED":
+                if (job.metadata.labels['video-recorder.spikedhand.com/type'] == TASK_TYPE_DOWNLOAD) {
+                    statusUpdate();
+
+                    // TODO: does this need to be rate-limited?
+
+                    // updateTimeoutId = setTimeout(() => {
+                    //     updateTimeoutId = null;
+                    // }, 1000);
+                }
+
+                break;
+            default:
+                // unknown event
+                // console.log(arguments);
+                break;
+        }
+    
+    }, () => { 
+        throw new Error('Job watch has terminated');
+    });
+}
+
+startListening();
+
 
 // END TODO
 
@@ -281,7 +348,7 @@ module.exports = {
      * @param callable
      */
     onUpdate: function(callback) {
-        callbacks.add(callback);
+        statusCallbacks.add(callback);
     },
     garbageCollect: async function () {
         let response = await k8sBatchApi.listNamespacedJob(NAMESPACE, undefined, false, undefined, undefined, 'video-recorder.spikedhand.com/type')
@@ -298,6 +365,11 @@ module.exports = {
                 let clean = false;
 
                 if ((Date.parse(job.metadata.creationTimestamp) + (ttl * 1000)) < Date.now()) {
+                    clean = true;
+                }
+
+                if (!internalWaiting.has(job.metadata.uid) && getStatusFromJob(job)) {
+                    // Job with a complete status but no handlers was abandoned by a past instance.
                     clean = true;
                 }
 
