@@ -287,7 +287,8 @@ function startListening() {
                 break;
         }
     
-    }, () => { 
+    }, (err) => { 
+        console.error(err);
         throw new Error('Job watch has terminated');
     });
 }
