@@ -248,10 +248,8 @@ async function removeJob(name) {
     k8sBatchApi.deleteNamespacedJob(name, NAMESPACE, 'false', undefined, undefined, undefined, propagationPolicy);
 }
 
-function startListening() {
-    // let updateTimeoutId;
-
-    watcher.watch('/apis/batch/v1/jobs', {"labelSelector": "video-recorder.spikedhand.com/type"}, function(status, job, event) {
+async function startListening() {
+    const req = watcher.watch(`/apis/batch/v1/namespaces/${NAMESPACE}/jobs`, {"labelSelector": "video-recorder.spikedhand.com/type"}, function(status, job, event) {
         if (job.metadata.uid && internalWaiting.has(job.metadata.uid)) {
             let handler = internalWaiting.get(job.metadata.uid);
             if (status in handler) {
@@ -288,8 +286,7 @@ function startListening() {
         }
     
     }, (err) => { 
-        console.error(err);
-        throw new Error('Job watch has terminated');
+        throw err;
     });
 }
 
