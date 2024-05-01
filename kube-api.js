@@ -317,7 +317,7 @@ module.exports = {
     },
     getVideoMetadata: async function(url) {
         try {
-            let output = await runCommand('yt-dlp', ['-q', '--no-warnings', '-J', url], PRIORITY_CLASS_METADATA);
+            let output = await runCommand('yt-dlp', ['-q', '--no-warnings', '--wait-for-video', '10', '-J', url], PRIORITY_CLASS_METADATA);
             return JSON.parse(output);
         } catch (e) {
             console.error(e);
