@@ -316,6 +316,9 @@ module.exports = {
         }
     },
     getVideoMetadata: async function(url) {
+        // experimenting with giving twitch high priority as it's likely a live stream.
+        const priority = url.indexOf('twitch.tv') ? PRIORITY_CLASS_HIGH : PRIORITY_CLASS_METADATA;
+
         try {
             let output = await runCommand('yt-dlp', ['-q', '--no-warnings', '--wait-for-video', '10', '-J', url], PRIORITY_CLASS_METADATA);
             return JSON.parse(output);
