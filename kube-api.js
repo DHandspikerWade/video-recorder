@@ -17,7 +17,7 @@ const CONTAINER_IMAGE = 'handspiker2/youtube-dl';
 const PVC_NAME = 'recorded-video-pvc'; // TODO: Make a parameter or config option
 const PRIORITY_CLASS_HIGH = 'realtime'; // TODO: Make a parameter or config option
 const PRIORITY_CLASS_LOW = 'whenever-you-get-chance'; // TODO: Make a parameter or config option
-const PRIORITY_CLASS_METADATA = PRIORITY_CLASS_LOW; // TODO: Make a parameter or config option
+const PRIORITY_CLASS_METADATA = 'before-you-forget'; // TODO: Make a parameter or config option
 
 const TASK_TYPE_DOWNLOAD = 'download';
 
@@ -329,7 +329,7 @@ module.exports = {
     },
     createDirectory: async function(directory) {
         try {
-            await runCommand('mkdir', ['-p', directory]);
+            await runCommand('mkdir', ['-p', directory], PRIORITY_CLASS_METADATA);
             return true;
         } catch (e) {
             console.error(e);
@@ -339,7 +339,7 @@ module.exports = {
 
     fileExists: async function(file) {
         try {
-            await runCommand('test', ['-f', file], null, null, {}, 'file-check', 1);
+            await runCommand('test', ['-f', file], PRIORITY_CLASS_METADATA, null, {}, 'file-check', 1);
             return true;
         } catch (e) {
             return false;
