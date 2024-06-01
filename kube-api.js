@@ -11,6 +11,7 @@ const watcher = new k8s.Watch(kc);
 
 const internalWaiting = new Map();
 const statusCallbacks = new Set();
+let listenId;
 
 const NAMESPACE = k8sContext.namespace || 'default';
 const CONTAINER_IMAGE = 'handspiker2/youtube-dl';
@@ -249,48 +250,68 @@ async function removeJob(name) {
 }
 
 async function startListening() {
-    const req = watcher.watch(`/apis/batch/v1/namespaces/${NAMESPACE}/jobs`, {"labelSelector": "video-recorder.spikedhand.com/type"}, function(status, job, event) {
-        if (job.metadata.uid && internalWaiting.has(job.metadata.uid)) {
-            let handler = internalWaiting.get(job.metadata.uid);
-            if (status in handler) {
-                handler[status].forEach((callback) => { callback(job, status); });
+    if (listenId) {
+        return;
+    }
+
+    let connected = false;
+    listenId = setInterval(() => {
+        if (connected) {
+            return; 
+        }
+
+        connected = true;
+        watcher.watch(`/apis/batch/v1/namespaces/${NAMESPACE}/jobs`, {"labelSelector": "video-recorder.spikedhand.com/type"}, function(status, job, event) {
+            if (job.metadata.uid && internalWaiting.has(job.metadata.uid)) {
+                let handler = internalWaiting.get(job.metadata.uid);
+                if (status in handler) {
+                    handler[status].forEach((callback) => { callback(job, status); });
+                }
             }
-        }
+            
+            switch(status) {
+                case "DELETED":
+                    if (job.metadata.uid && internalWaiting.has(job.metadata.uid)) {
+                        // GC handlers once a job is deleted
+                        internalWaiting.delete(job.metadata.uid);
+                    }
+
+                    // no break
+
+                case "MODIFIED":
+                case "ADDED":
+                    if (job.metadata.labels['video-recorder.spikedhand.com/type'] == TASK_TYPE_DOWNLOAD) {
+                        statusUpdate();
+
+                        // TODO: does this need to be rate-limited?
+
+                        // updateTimeoutId = setTimeout(() => {
+                        //     updateTimeoutId = null;
+                        // }, 1000);
+                    }
+
+                    break;
+                default:
+                    // unknown event
+                    console.log(status);
+                    break;
+            }
         
-        switch(status) {
-            case "DELETED":
-                if (job.metadata.uid && internalWaiting.has(job.metadata.uid)) {
-                    // GC handlers once a job is deleted
-                    internalWaiting.delete(job.metadata.uid);
-                }
-
-                // no break
-
-            case "MODIFIED":
-            case "ADDED":
-                if (job.metadata.labels['video-recorder.spikedhand.com/type'] == TASK_TYPE_DOWNLOAD) {
-                    statusUpdate();
-
-                    // TODO: does this need to be rate-limited?
-
-                    // updateTimeoutId = setTimeout(() => {
-                    //     updateTimeoutId = null;
-                    // }, 1000);
-                }
-
-                break;
-            default:
-                // unknown event
-                // console.log(arguments);
-                break;
-        }
-    
-    }, (err) => { 
-        throw err;
-    });
+        }, (err) => { 
+            if (err == null) {
+                console.log('error was null');
+                connected = false;
+            } else {
+                throw err;
+            }
+        });
+    }, 500);
 }
 
 startListening();
+
+// startListening should handle any existing pods, but force status update in case there are none on start-up
+statusUpdate();
 
 
 // END TODO
@@ -381,9 +402,8 @@ module.exports = {
         }
     },
     disconnect: async function() {
-        // No action. 
-
-        // temp
-        clearInterval(intervalId);
+        if (listenId) {
+            clearInterval(listenId);
+        }
     }
 };
