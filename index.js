@@ -181,8 +181,6 @@ if (process.env.MQTT_BROKER) {
     });
 }
 
-kubeClient.garbageCollect();
-
 let lastTick = 0;
 const tickInterval = setInterval(() => {
     // minutes
@@ -194,6 +192,7 @@ const tickInterval = setInterval(() => {
 
     lastTick = time;
 
+    // Clear the flast minute of requests
     alreadyRequested.clear();
 
     if (mqttClient) {
@@ -201,6 +200,11 @@ const tickInterval = setInterval(() => {
             mqttClient.publish(baseTopic + '/state', 'online');
         }
     }
+
+    if (time % 30) {
+        kubeClient.garbageCollect();
+    }
+
 }, 20 * 1000) // 20 seconds
 
 function stop() {
