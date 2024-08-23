@@ -12,4 +12,7 @@ ENV DOWNLOAD_PATH '/tmp'
 # Set to '1' to force single stream files to output as MKV (Useful as MKV stores more metadata than mp4)
 ENV ALWAYS_MKV '0'
 
+ENV TITLE_FORMAT_YOUTUBE ''
+ENV TITLE_FORMAT_TWITCH ''
+
 CMD [ "node", "index.js"]

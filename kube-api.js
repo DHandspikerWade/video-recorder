@@ -19,8 +19,11 @@ const PVC_NAME = 'recorded-video-pvc'; // TODO: Make a parameter or config optio
 const PRIORITY_CLASS_HIGH = 'realtime'; // TODO: Make a parameter or config option
 const PRIORITY_CLASS_LOW = 'whenever-you-get-chance'; // TODO: Make a parameter or config option
 const PRIORITY_CLASS_METADATA = 'before-you-forget'; // TODO: Make a parameter or config option
-
 const TASK_TYPE_DOWNLOAD = 'download';
+
+const DEFAULT_FORMAT = '%(title)s [%(id)s].%(ext)s'; // Default 
+const TWITCH_FORMAT = process.env.TITLE_FORMAT_TWITCH || DEFAULT_FORMAT;
+const YOUTUBE_FORMAT = process.env.TITLE_FORMAT_YOUTUBE || DEFAULT_FORMAT;
 
 const DEFAULT_RESOURCE_LIMITS = {
     requests: {
@@ -319,6 +322,15 @@ statusUpdate();
 module.exports = {
     downloadVideo: async function(url,  source, trigger, ytOptions, outputDirectory, isLive) {
         let options = ytOptions || [];
+
+        if (source == 'youtube') {
+            options.push('-o', YOUTUBE_FORMAT);
+        } else if (source == 'twitch') {
+            options.push('-o', TWITCH_FORMAT);
+        } else {
+            options.push('-o', DEFAULT_FORMAT);
+        }
+
         options.push(url);
 
         const metadata = {
