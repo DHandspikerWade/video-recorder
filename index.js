@@ -44,7 +44,7 @@ async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
             console.log('Creating  downloader  for ' + trigger + (hasCookie ? ' (with cookies)' : ''));
 
             let isLive = false;
-            if (metadata && metadata.is_live) {
+            if (metadata && metadata.is_live && metadata.is_live != 'was_live') {
                 isLive = true;
             }
 
