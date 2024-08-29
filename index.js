@@ -6,6 +6,10 @@ const kubeClient = require('./kube-api');
 
 const downloadPath = process.env.DOWNLOAD_PATH || '/tmp'
 
+const DEFAULT_FORMAT = '%(title)s [%(id)s].%(ext)s'; // Default 
+const TWITCH_FORMAT = process.env.TITLE_FORMAT_TWITCH || DEFAULT_FORMAT;
+const YOUTUBE_FORMAT = process.env.TITLE_FORMAT_YOUTUBE || DEFAULT_FORMAT;
+
 function checkCookieFileExists() {
     return kubeClient.fileExists('cookies.txt');
 }
@@ -23,6 +27,11 @@ async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
         youtubeOptions.push('--remux-video', 'mkv');
     }
 
+    if (process.env.SAVE_MTIME > 0) {
+        youtubeOptions.push('--mtime');
+    } else {
+        youtubeOptions.push('--no-mtime');
+    }
 
     checkCookieFileExists().then((hasCookie) => {
         if (hasCookie) {
@@ -46,6 +55,14 @@ async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
 
                 // https://github.com/yt-dlp/yt-dlp/issues/5747
                 ignoreChat = true;
+            }
+
+            if (source == 'youtube') {
+                youtubeOptions.push('-o', YOUTUBE_FORMAT);
+            } else if (source == 'twitch') {
+                youtubeOptions.push('-o', TWITCH_FORMAT);
+            } else {
+                youtubeOptions.push('-o', DEFAULT_FORMAT);
             }
 
             if (url.indexOf('youtube') !== -1 && isLive) {

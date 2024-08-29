@@ -11,6 +11,7 @@ ENV REDIS_CONNECTION ''
 ENV DOWNLOAD_PATH '/tmp'
 # Set to '1' to force single stream files to output as MKV (Useful as MKV stores more metadata than mp4)
 ENV ALWAYS_MKV '0'
+ENV SAVE_MTIME '1'
 
 ENV TITLE_FORMAT_YOUTUBE ''
 ENV TITLE_FORMAT_TWITCH ''
