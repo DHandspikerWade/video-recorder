@@ -1,7 +1,3 @@
-kind: pipeline
-type: docker
-name: default
-
 steps:
 - name: Build & publish  
   image: plugins/docker
