@@ -1,4 +1,4 @@
-[![Build Status](https://drone.spikedhand.com/api/badges/devin/video-recorder/status.svg)](https://drone.spikedhand.com/devin/video-recorder)
+[![Build Status](https://ci.spikedhand.com/api/badges/5/status.svg)](https://ci.spikedhand.com/repos/5)
 
 Quick and dirty way to trigger a Twitch recording by spawning a Docker container that handles the download. I use it to record live streams that are too late for me watch live without chunks of audio removed.
 

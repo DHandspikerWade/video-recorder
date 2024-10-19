@@ -209,7 +209,7 @@ const tickInterval = setInterval(() => {
 
     lastTick = time;
 
-    // Clear the flast minute of requests
+    // Clear the last minute of requests
     alreadyRequested.clear();
 
     if (mqttClient) {

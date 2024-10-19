@@ -155,6 +155,7 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
                             image: CONTAINER_IMAGE,
                             resources: DEFAULT_RESOURCE_LIMITS,
                             imagePullPolicy: 'IfNotPresent',
+                            env: [],
                             workingDir: '/data/' + (workingDir || ''),
                             command: [command],
                             args: options,
@@ -174,6 +175,16 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
     if (priority) {
         newJob.spec.template.spec.priorityClassName = priority;
     }
+
+    if (process.env.UMASK) {
+        for (let key in newJob.spec.template.spec.containers) {
+            newJob.spec.template.spec.containers[key].env.push({
+                name: "UMASK",
+                value: process.env.UMASK,
+            });
+        }
+    }
+
 
     addObjectMetadata(newJob, metadata);
 
