@@ -140,6 +140,21 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
             backoffLimit: backoffLimit || 5,
             template:{
                 spec: {
+                    topologySpreadConstraints: [ // If there are multiple agents, spread the downloads around
+                        {
+                            topologyKey: 'kubernetes.io/hostname',
+                            maxSkew: 2,
+                            whenUnsatisfiable: 'ScheduleAnyway',
+                            labelSelector: {
+                                matchExpressions: [
+                                    { 
+                                        key: 'video-recorder.spikedhand.com/type', 
+                                        operator: "Exists"
+                                    }
+                                ]
+                            }
+                        }
+                    ],
                     restartPolicy: 'Never',
                     volumes: [
                         {
@@ -184,7 +199,6 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
             });
         }
     }
-
 
     addObjectMetadata(newJob, metadata);
 
