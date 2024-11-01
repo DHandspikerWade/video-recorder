@@ -189,6 +189,11 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
 
     if (priority) {
         newJob.spec.template.spec.priorityClassName = priority;
+
+        if (priority === PRIORITY_CLASS_LOW) {
+            // If a command is low priority, it can wait for the minimum skew. 
+            newJob.spec.template.spec.topologySpreadConstraints[0].whenUnsatisfiable = "DoNotSchedule";
+        }
     }
 
     if (process.env.UMASK) {
