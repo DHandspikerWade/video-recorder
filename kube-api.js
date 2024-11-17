@@ -23,8 +23,8 @@ const TASK_TYPE_DOWNLOAD = 'download';
 
 const DEFAULT_RESOURCE_LIMITS = {
     requests: {
-        cpu: "300m",
-        memory: "512Mi",
+        cpu: "100m",
+        memory: "128Mi",
         'ephemeral-storage': "1Gi"
     },
     limits: {
