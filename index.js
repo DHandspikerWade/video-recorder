@@ -15,7 +15,16 @@ function checkCookieFileExists() {
 }
 
 async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
-    const youtubeOptions = ['-f', 'bestvideo+bestaudio/best', '--add-metadata', '--embed-subs', '--merge-output-format', 'mkv', '-c', '--wait-for-video', '60', '--embed-thumbnail'];
+    const youtubeOptions = [
+        '-f', 'bestvideo+bestaudio/best', 
+        '--add-metadata', 
+        '--embed-subs', 
+        '--merge-output-format', 'mkv', 
+        '-c', 
+        '--wait-for-video', '60', 
+        '--embed-thumbnail',
+        '--convert-thumbnails', 'webp>jpg', // WebP is not in-spec for MKV but yt-dlp still tries to mixed results. PNG results in segfault with FFmpeg > 6
+    ];
 
     subdirectory = subdirectory || '';
 
