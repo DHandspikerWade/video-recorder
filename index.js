@@ -188,8 +188,13 @@ if (process.env.MQTT_BROKER) {
                 let service = topic.replace(baseTopic + '/', '');
 
                 message = message.toString().trim();
-                if (service !== 'status') {
-                    handleService(service, message);
+                if (message && service !== 'status') {
+                    (new Set(message.split("\n"))).forEach((item) => {
+                        console.log(item)
+                        if (item.trim()) {
+                            handleService(service, item);
+                        }
+                    });
                 }
             }
         } 
