@@ -1,6 +1,6 @@
 steps:
 - name: Build & publish  
-  image: plugins/docker
+  image: woodpeckerci/plugin-docker-buildx
   settings:
     username:
       from_secret: docker_username
@@ -15,7 +15,7 @@ steps:
     - master
 
 - name: Build & publish Experimental
-  image: plugins/docker
+  image: woodpeckerci/plugin-docker-buildx
   settings:
     username:
       from_secret: docker_username
@@ -31,7 +31,7 @@ steps:
 
 # Just test build branches
 - name: Build  
-  image: plugins/docker
+  image: woodpeckerci/plugin-docker-buildx
   settings:
     repo: registry.gitlab.com/dhandspikerwade/video-recorder
     tags: latest
