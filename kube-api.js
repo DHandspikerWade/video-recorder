@@ -370,7 +370,7 @@ module.exports = {
         const priority = url.indexOf('twitch.tv') ? PRIORITY_CLASS_HIGH : PRIORITY_CLASS_METADATA;
 
         try {
-            let output = await runCommand('yt-dlp', ['-q', '--no-warnings', '--wait-for-video', '10', '-J', url], PRIORITY_CLASS_METADATA);
+            let output = await runCommand('yt-dlp', ['-q', '--no-warnings', '--flat-playlist', '--wait-for-video', '10', '-J', url], PRIORITY_CLASS_METADATA);
             return JSON.parse(output);
         } catch (e) {
             console.error(e);

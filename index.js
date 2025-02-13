@@ -49,7 +49,14 @@ async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
 
         console.log('getting metadata for ' + trigger);
         kubeClient.getVideoMetadata(url.trim()).then((metadata) => {
-            // youtubeOptions.push(url.trim());
+
+            if (metadata._type == 'playlist') { 
+                metadata.entries.forEach((entry) => {
+                    downloadVideo(entry.url, source, trigger, includeSubs, subdirectory);
+                });
+                return;
+            }
+
             console.log('Creating  downloader  for ' + trigger + (hasCookie ? ' (with cookies)' : ''));
 
             let isLive = false;
@@ -190,7 +197,6 @@ if (process.env.MQTT_BROKER) {
                 message = message.toString().trim();
                 if (message && service !== 'status') {
                     (new Set(message.split("\n"))).forEach((item) => {
-                        console.log(item)
                         if (item.trim()) {
                             handleService(service, item);
                         }
