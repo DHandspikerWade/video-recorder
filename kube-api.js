@@ -52,6 +52,7 @@ function addInternalWaiter(uid, type, callback) {
 }
 
 function addObjectMetadata(object, parameters) {
+    object.metadata = object.metadata || {};
     object.metadata.annotations = object.metadata.annotations || {};
     object.metadata.labels = object.metadata.labels || {};
 
@@ -67,6 +68,7 @@ function addObjectMetadata(object, parameters) {
 
         if (parameters.sourceType) {
             object.metadata.annotations['video-recorder.spikedhand.com/source-type'] = parameters.sourceType;
+            object.metadata.labels['video-recorder.spikedhand.com/source-type'] = parameters.sourceType;
         }
         if (parameters.trigger) {
             object.metadata.annotations['video-recorder.spikedhand.com/trigger'] = parameters.trigger;
@@ -74,9 +76,6 @@ function addObjectMetadata(object, parameters) {
 
         if (parameters.taskType) {
             object.metadata.annotations['video-recorder.spikedhand.com/type'] = parameters.taskType;
-        }
-
-        if (parameters.taskType) {
             object.metadata.labels['video-recorder.spikedhand.com/type'] = parameters.taskType;
         }
     }
@@ -169,7 +168,7 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
                             name: 'task',
                             image: CONTAINER_IMAGE,
                             resources: DEFAULT_RESOURCE_LIMITS,
-                            imagePullPolicy: 'IfNotPresent',
+                            imagePullPolicy: 'Always',
                             env: [],
                             workingDir: '/data/' + (workingDir || ''),
                             command: [command],
@@ -206,6 +205,8 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
     }
 
     addObjectMetadata(newJob, metadata);
+    // Add matching labels to the pods as well
+    addObjectMetadata(newJob.spec.template, metadata);
 
     return new Promise((resolve, reject) => {
         k8sBatchApi.createNamespacedJob(NAMESPACE, newJob).then((response) => {
