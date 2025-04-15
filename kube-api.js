@@ -139,6 +139,7 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
             backoffLimit: backoffLimit || 5,
             template:{
                 spec: {
+                    automountServiceAccountToken: false,
                     topologySpreadConstraints: [ // If there are multiple agents, spread the downloads around
                         {
                             topologyKey: 'kubernetes.io/hostname',
