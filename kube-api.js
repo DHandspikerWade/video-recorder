@@ -139,6 +139,7 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
             backoffLimit: backoffLimit || 5,
             template:{
                 spec: {
+                    securityContext: {},
                     automountServiceAccountToken: false,
                     topologySpreadConstraints: [ // If there are multiple agents, spread the downloads around
                         {
@@ -203,6 +204,26 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
                 value: process.env.UMASK,
             });
         }
+    }
+
+    //
+    // Existence of GID and UID depend on operating system. Should always exist due to running in a Linux container, but checking anyway. 
+    //
+
+    if (!process.env.PGID) {
+        if (process.getegid && process.getegid()) {
+            newJob.spec.template.spec.securityContext.runAsGroup = Number(process.getegid());
+        }
+    } else {
+        newJob.spec.template.spec.securityContext.runAsGroup = Number(process.env.PGID);
+    }
+
+    if (!process.env.PUID) {
+        if (process.geteuid && process.geteuid()) {
+            newJob.spec.template.spec.securityContext.runAsUser = Number(process.geteuid());
+        }
+    } else {
+        newJob.spec.template.spec.securityContext.runAsUser = Number(process.env.PUID);
     }
 
     addObjectMetadata(newJob, metadata);
