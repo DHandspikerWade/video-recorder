@@ -1,4 +1,4 @@
-FROM node:16-alpine
+FROM node:22-alpine
 WORKDIR /home/node
 COPY package.json package-lock.json /home/node/
 RUN npm ci

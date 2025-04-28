@@ -4,8 +4,6 @@ const mqtt = require('mqtt');
 // const cache = require('./cache')(process.env.REDIS_CONNECTION || '');
 const kubeClient = require('./kube-api');
 
-const downloadPath = process.env.DOWNLOAD_PATH || '/tmp'
-
 const DEFAULT_FORMAT = '%(title)s [%(id)s].%(ext)s'; // Default 
 const TWITCH_FORMAT = process.env.TITLE_FORMAT_TWITCH || DEFAULT_FORMAT;
 const YOUTUBE_FORMAT = process.env.TITLE_FORMAT_YOUTUBE || DEFAULT_FORMAT;
