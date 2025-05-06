@@ -14,7 +14,7 @@ const statusCallbacks = new Set();
 let listenId;
 
 const NAMESPACE = k8sContext.namespace || 'default';
-const CONTAINER_IMAGE = 'handspiker2/youtube-dl';
+const DEFAULT_CONTAINER_IMAGE = 'handspiker2/youtube-dl';
 const PVC_NAME = 'recorded-video-pvc'; // TODO: Make a parameter or config option
 const PRIORITY_CLASS_HIGH = 'realtime'; // TODO: Make a parameter or config option
 const PRIORITY_CLASS_LOW = 'whenever-you-get-chance'; // TODO: Make a parameter or config option
@@ -168,7 +168,7 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
                     containers: [
                         {
                             name: 'task',
-                            image: CONTAINER_IMAGE,
+                            image: DEFAULT_CONTAINER_IMAGE,
                             resources: DEFAULT_RESOURCE_LIMITS,
                             imagePullPolicy: 'Always',
                             env: [],
@@ -203,6 +203,13 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
                 name: "UMASK",
                 value: process.env.UMASK,
             });
+        }
+    }
+
+    if (process.env.CONTAINER_IMAGE) {
+        for (let key in newJob.spec.template.spec.containers) {
+            newJob.spec.template.spec.containers[key].image = process.env.CONTAINER_IMAGE;
+            newJob.spec.template.spec.containers[key].imagePullPolicy = 'IfNotPresent';
         }
     }
 
