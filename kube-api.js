@@ -128,7 +128,7 @@ function getStatusFromJob(job) {
 function runCommand(command, options, priority, workingDir, metadata, prefix, backoffLimit) {
     const newJob = {
         metadata: {
-            generateName: prefix || 'asynctask-',
+            generateName: prefix + '-' || 'asynctask-',
             labels: {
                 'video-recorder.spikedhand.com/type': 'task',
             }
