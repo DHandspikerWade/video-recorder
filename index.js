@@ -1,20 +1,12 @@
-// const Docker = require('dockerode');
-// const DockerEvents = require('docker-events');
-const mqtt = require('mqtt');
-// const cache = require('./cache')(process.env.REDIS_CONNECTION || '');
-const kubeClient = require('./kube-api');
-
 const downloadPath = process.env.DOWNLOAD_PATH || '/tmp'
 
 const DEFAULT_FORMAT = '%(title)s [%(id)s].%(ext)s'; // Default 
 const TWITCH_FORMAT = process.env.TITLE_FORMAT_TWITCH || DEFAULT_FORMAT;
 const YOUTUBE_FORMAT = process.env.TITLE_FORMAT_YOUTUBE || DEFAULT_FORMAT;
 
-function checkCookieFileExists() {
-    return kubeClient.fileExists('cookies.txt');
-}
+const shutdownHandlers = [];
 
-async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
+async function downloadVideo(client, url, source, trigger, includeSubs, subdirectory) {
     const youtubeOptions = [
         '-f', 'bestvideo+bestaudio/best', 
         '--add-metadata', 
@@ -42,22 +34,22 @@ async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
         youtubeOptions.push('--no-mtime');
     }
 
-    checkCookieFileExists().then((hasCookie) => {
+    client.fileExists('cookies.txt').then((hasCookie) => {
         if (hasCookie) {
             youtubeOptions.push('--cookies', '/data/cookies.txt');
         }
 
         console.log('getting metadata for ' + trigger);
-        kubeClient.getVideoMetadata(url.trim()).then((metadata) => {
+        client.getVideoMetadata(url.trim()).then((metadata) => {
 
             if (metadata._type == 'playlist') { 
                 metadata.entries.forEach((entry) => {
-                    downloadVideo(entry.url, source, trigger, includeSubs, subdirectory);
+                    downloadVideo(client, entry.url, source, trigger, includeSubs, subdirectory);
                 });
                 return;
             }
 
-            console.log('Creating  downloader  for ' + trigger + (hasCookie ? ' (with cookies)' : ''));
+            console.log('Creating downloader for ' + trigger + (hasCookie ? ' (with cookies)' : ''));
 
             let isLive = false;
             if (metadata && metadata.is_live && metadata.is_live != 'was_live') {
@@ -96,13 +88,12 @@ async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
                 });
             }
 
-            kubeClient.downloadVideo(url.trim(), source, trigger, youtubeOptions, subdirectory, isLive);
+            client.downloadVideo(url.trim(), source, trigger, youtubeOptions, subdirectory, isLive);
         });
     });
 }
 
-function downloadTwitch(username, directory) {
-
+function downloadTwitch(client, username, directory) {
     let url =  'https://www.twitch.tv/';
 
     if (username.match(/^\d{4}\d+$/)) { // If "username" is a long number, it's probably a VOD.
@@ -110,36 +101,34 @@ function downloadTwitch(username, directory) {
     }
 
     url += username;
-    downloadVideo(url, 'twitch', username, false, directory);
-
+    downloadVideo(client, url, 'twitch', username, false, directory);
 }
 
-function downloadYoutube(videoId, directory) {
+function downloadYoutube(client, videoId, directory) {
     let url =  'https://www.youtube.com/watch?v=';
     url += videoId;
 
-    downloadVideo(url, 'youtube', videoId, true, directory);
+    downloadVideo(client, url, 'youtube', videoId, true, directory);
 }
 
-function handleService(serviceName, message, directory) {
+function handleService(client, serviceName, message, directory) {
     directory = directory || '';
 
     if (serviceName && message) {
         switch (serviceName) {
             case 'twitch':
-                downloadTwitch(message, directory);
+                downloadTwitch(client, message, directory);
                 return true;
 
             case 'youtube':
-                downloadYoutube(message, directory);
+                downloadYoutube(client, message, directory);
                 return true;
 
             case 'url':
-                downloadVideo(message, 'url', message, true, directory);
+                downloadVideo(client, message, 'url', message, true, directory);
                 return true;
         }
 
-        
         if (serviceName.indexOf('directory/') === 0) {
             let parts = serviceName.substring(10).split('/');
 
@@ -151,10 +140,11 @@ function handleService(serviceName, message, directory) {
 
                 newDirectory += parts[0];
 
-                kubeClient.createDirectory(newDirectory).then(() => {
+                console.log(`Creating directory "${newDirectory}"`);
+                client.createDirectory(newDirectory).then(() => {
                     parts.shift();
                     let newService = parts.join('/');
-                    handleService(newService, message, newDirectory);
+                    handleService(client, newService, message, newDirectory);
                 });
 
                 return true;
@@ -163,13 +153,29 @@ function handleService(serviceName, message, directory) {
     }
 
     return false;
-} 
+}
 
-let mqttClient;
-const alreadyRequested = new Set();
-let baseTopic = process.env.MQTT_TOPIC || 'video-recorder';
-if (process.env.MQTT_BROKER) {
-    mqttClient = mqtt.connect(process.env.MQTT_BROKER, {
+function createInterval(callback, seconds) {
+    // Abstract interval to handle shutdown events
+
+    let id = setInterval(callback, seconds * 1e3);
+    onShutdown(() => {
+        console.log('stopping ' + id);
+        clearInterval(id);
+    })
+}
+
+function onShutdown(callback) {
+    shutdownHandlers.push(callback);
+}
+
+function setupBroker(client, connectionStr, baseTopic) {
+    const mqtt = require('mqtt');
+
+    let mqttClient;
+    const alreadyRequested = new Set();
+
+    mqttClient = mqtt.connect(connectionStr, {
         will: {
             topic: baseTopic + '/state',
             payload: 'offline',
@@ -198,7 +204,7 @@ if (process.env.MQTT_BROKER) {
                 if (message && service !== 'status') {
                     (new Set(message.split("\n"))).forEach((item) => {
                         if (item.trim()) {
-                            handleService(service, item);
+                            handleService(client, service, item);
                         }
                     });
                 }
@@ -206,7 +212,7 @@ if (process.env.MQTT_BROKER) {
         } 
     });
 
-    kubeClient.onUpdate((downloads) => {
+    client.onUpdate((downloads) => {
         const data = {
             count: downloads.size,
             // Keep "containers" key for backwards support
@@ -214,47 +220,63 @@ if (process.env.MQTT_BROKER) {
         };
 
         mqttClient.publish(baseTopic + '/status', JSON.stringify(data));
-
     });
-}
-
-let lastTick = 0;
-const tickInterval = setInterval(() => {
-    // minutes
-    let time = Math.floor((Date.now() /1000) / 60);
-
-    if (lastTick === time) { // Jobs are scheduled based on minutes but we tick faster
-        return;
-    }
-
-    lastTick = time;
 
     // Clear the last minute of requests
-    alreadyRequested.clear();
+    createInterval(() => alreadyRequested.clear(), 80);
+    // Announce life every 5 minutes
+    createInterval(() => mqttClient.publish(baseTopic + '/state', 'online'), 5 * 60);
 
-    if (mqttClient) {
-        if (time % 5 == 0) {
-            mqttClient.publish(baseTopic + '/state', 'online');
-        }
-    }
-
-    if (time % 30) {
-        kubeClient.garbageCollect();
-    }
-
-}, 20 * 1000) // 20 seconds
-
-function stop() {
-    console.log('Shutting down...')
-    // dockerEmitter.stop();
-    clearInterval(tickInterval);
-    if (mqttClient) {
+    onShutdown(() => {
         mqttClient.publish(baseTopic + '/state', 'offline');
-        mqttClient.end()
-    }
+        mqttClient.end();
+    });
 
-    kubeClient.disconnect();
+    return mqttClient;
 }
 
-process.on("SIGINT", () => { console.log('Recieved SIGINT'); stop() } );
-process.on("SIGTERM", () => { console.log('Recieved SIGTERM'); stop() });
+function setupClient() {
+    let client;
+
+    // TODO check for docker
+    client = require('./kube-api');
+
+    if (client) {
+        // garbageCollect every 30 minutes
+        createInterval(() => client.garbageCollect(), 30 * 60);
+    }
+
+    return client;
+}
+
+function start() {
+    let client = setupClient();
+
+    if (!client) {
+        console.error('Could not create a client');
+        process.exit(1);
+    }
+
+    if (process.env.MQTT_BROKER) {
+        let baseTopic = process.env.MQTT_TOPIC || 'video-recorder';
+        setupBroker(client, process.env.MQTT_BROKER, baseTopic);
+    }
+
+    process.on("SIGINT", () => { console.log('Recieved SIGINT'); stop(client) } );
+    process.on("SIGTERM", () => { console.log('Recieved SIGTERM'); stop(client) });
+}
+
+function stop(client) {
+    console.log('Shutting down...')
+    // dockerEmitter.stop();
+
+    for (const index in shutdownHandlers) {
+        shutdownHandlers[index]();
+    }
+
+    if (client) {
+        client.disconnect();
+    }
+}
+
+start();
