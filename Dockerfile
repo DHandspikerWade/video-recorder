@@ -1,4 +1,9 @@
 FROM node:16-alpine
+
+LABEL org.opencontainers.image.source="https://github.com/DHandspikerWade/video-recorder"
+LABEL org.opencontainers.image.title="Video Recorder"
+LABEL org.opencontainers.image.description="Easy way to record live streams"
+
 WORKDIR /home/node
 COPY package.json package-lock.json /home/node/
 RUN npm ci
