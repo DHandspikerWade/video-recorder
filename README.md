@@ -1,18 +1,23 @@
 [![Build Status](https://ci.spikedhand.com/api/badges/5/status.svg)](https://ci.spikedhand.com/repos/5)
 
-Quick and dirty way to trigger a Twitch recording by spawning a Docker container that handles the download. I use it to record live streams that are too late for me watch live without chunks of audio removed.
+Quick and dirty way to trigger a Twitch recording by spawning a container that handles the download. I use it to record live streams that are too late for me watch live without chunks of audio removed.
 
 **This is completely unsecured and talks directly to the Docker socket. As a result is this is INCREDIBLY UNSAFE. Only use on trusted networks and NEVER expose it publicly. Don't blame me if your machine gets turned into a botnet**
 
-## Environment Variables
+## General Environment Variables
 
 | Name | Required? | Purpose | 
 | --- | --- | --- |
 | MQTT_BROKER | Required | Connection string to connect to MQTT to accept commands. Should start with `mqtt://`|
 | MQTT_TOPIC | Optional | Topic prefix to listen for commands. Defaults to `video-recorder`. | 
-| DOWNLOAD_PATH | Optional (Recommended) | Host path to map container downloads to. Must be an absolute path or the name of a pre-existing docker volume. Defaults to `/tmp` |
-| REDIS_CONNECTION | Optional | Connection string to connect to Redis to perserve metadata on in-progress downloads across container restarts. Needed if running multiple recorder on same host to prevent container name conflicts. Should start with `redis://` |
+| DOWNLOAD_PATH | Optional (Recommended) | Host path to map container downloads to. Must be an absolute path or the name of a pre-existing volume/PVC. Defaults to `/tmp` |
 | ALWAYS_MKV | Optional | Enables post-processing to remux video into a MKV container regardless of recieved container. Expects `1` or `0`. Defaults to `0` |
+
+## Kubernetes Specific Variables
+
+| Name | Required? | Purpose | 
+| --- | --- | --- |
+| KUBE_TOLERATIONS | Optional | Semicolon seperated tolerations to be applied to created Pods. |
 
 ## Topics exposed:
 

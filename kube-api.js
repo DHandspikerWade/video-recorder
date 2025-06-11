@@ -125,6 +125,66 @@ function getStatusFromJob(job) {
     return status;
 }
 
+function parseToleration(rawString) {
+    const tolerations = [];
+
+    if (typeof rawString === 'string') {
+        (rawString + '').split(';').forEach((part) => {
+            let key, value, operator, effect, matches;
+            part = part.trim();
+
+            if (!part) 
+                return;
+
+            if (part.indexOf('=') > -1) {
+                matches = /^([^=]+)\=([^\:]+)(?:\:(.+))?/.exec(part);
+                if (matches) {
+                    key = matches[1];
+                    value = matches[2];
+                    effect = matches[3];
+                }
+            } else {
+                matches = /^([^\:]+)(?:\:(.+))?/.exec(part);
+                if (matches) {
+                    key = matches[1];
+                    effect = matches[2];
+                }
+            }
+
+            if (key && value) {
+                operator = 'Equals';
+            } else if (key) {
+                operator = 'Exists';
+            }
+
+            // malformed toleration should not be returned
+            if (!operator)
+                return;
+
+            const addition = {
+                operator
+            };
+
+            if (value) {
+                addition['value'] = value;
+            }
+
+            if (key) {
+                addition['key'] = key;
+            }
+
+            if (effect) {
+                addition['effect'] = effect;
+            }
+
+            tolerations.push(addition);
+        });
+
+    }
+
+    return tolerations;
+}
+
 function runCommand(command, options, priority, workingDir, metadata, prefix, backoffLimit) {
     const newJob = {
         metadata: {
@@ -195,6 +255,10 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
             // If a command is low priority, it can wait for the minimum skew. 
             newJob.spec.template.spec.topologySpreadConstraints[0].whenUnsatisfiable = "DoNotSchedule";
         }
+    }
+
+    if (process.env.KUBE_TOLERATIONS) {
+        newJob.spec.template.spec.tolerations = parseToleration(process.env.KUBE_TOLERATIONS);
     }
 
     if (process.env.UMASK) {
