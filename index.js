@@ -47,22 +47,24 @@ async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
             youtubeOptions.push('--cookies', '/data/cookies.txt');
         }
 
+        let isLive = false;
+
         console.log('getting metadata for ' + trigger);
         kubeClient.getVideoMetadata(url.trim()).then((metadata) => {
+            if (metadata) {
+                if (metadata._type == 'playlist') { 
+                    metadata.entries.forEach((entry) => {
+                        downloadVideo(entry.url, source, trigger, includeSubs, subdirectory);
+                    });
+                    return;
+                }
 
-            if (metadata._type == 'playlist') { 
-                metadata.entries.forEach((entry) => {
-                    downloadVideo(entry.url, source, trigger, includeSubs, subdirectory);
-                });
-                return;
+                if (metadata.is_live && metadata.is_live != 'was_live') {
+                    isLive = true;
+                }
             }
 
             console.log('Creating  downloader  for ' + trigger + (hasCookie ? ' (with cookies)' : ''));
-
-            let isLive = false;
-            if (metadata && metadata.is_live && metadata.is_live != 'was_live') {
-                isLive = true;
-            }
 
             let ignoreChat = false;
             if (url.indexOf('twitch') !== -1) {
