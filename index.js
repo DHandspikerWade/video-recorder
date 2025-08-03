@@ -21,7 +21,8 @@ async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
         '--embed-subs', 
         '--merge-output-format', 'mkv', 
         '-c', 
-        '--wait-for-video', '60', 
+        '--wait-for-video', '60',
+        '-t', 'sleep', // Use the predefined sleep settings as of yt-dlp 2025.04.30 
         '--embed-thumbnail',
         '--convert-thumbnails', 'webp>jpg', // WebP is not in-spec for MKV but yt-dlp still tries to mixed results. PNG results in segfault with FFmpeg > 6
     ];
