@@ -27,6 +27,10 @@ async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
         '--convert-thumbnails', 'webp>jpg', // WebP is not in-spec for MKV but yt-dlp still tries to mixed results. PNG results in segfault with FFmpeg > 6
     ];
 
+    // Should technically be a temp fix for services that use weird extenstions for thumbnails. Extractors will likely be eventally updated to handle them. 
+    // For a personal use tool mostly for Twich and Youtube, I'm not that worried about the risk given it was existing functionality for years.
+    youtubeOptions.push('--compat-opt', 'allow-unsafe-ext');
+
     subdirectory = subdirectory || '';
 
     if (typeof includeSubs === 'undefined' || includeSubs) {
