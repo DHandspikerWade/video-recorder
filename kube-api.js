@@ -223,6 +223,12 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
                             persistentVolumeClaim: {
                                 claimName: PVC_NAME
                             }
+                        }, 
+                        {
+                            name: 'cache',
+                            emptyDir: {
+                                sizeLimit: '512Mi'
+                            }
                         }
                     ],
                     containers: [
@@ -239,6 +245,10 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
                                 {
                                     name: "workspace",
                                     mountPath: '/data'
+                                },
+                                {
+                                    name: "cache",
+                                    mountPath: '/.cache'
                                 }
                             ]
                         }
