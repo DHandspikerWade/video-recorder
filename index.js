@@ -22,7 +22,6 @@ async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
         '--merge-output-format', 'mkv', 
         '-c', 
         '--wait-for-video', '60',
-        '-t', 'sleep', // Use the predefined sleep settings as of yt-dlp 2025.04.30 
         '--embed-thumbnail',
         '--convert-thumbnails', 'webp>jpg', // WebP is not in-spec for MKV but yt-dlp still tries to mixed results. PNG results in segfault with FFmpeg > 6
     ];
@@ -67,6 +66,10 @@ async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
                 if (metadata.is_live && metadata.is_live != 'was_live') {
                     isLive = true;
                 }
+            }
+
+            if (!isLive) {
+                youtubeOptions.push('-t', 'sleep') // Use the predefined sleep settings as of yt-dlp 2025.04.30 
             }
 
             console.log('Creating  downloader  for ' + trigger + (hasCookie ? ' (with cookies)' : ''));
