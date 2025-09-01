@@ -1,4 +1,4 @@
-FROM node:16-alpine
+FROM node:22-alpine
 
 LABEL org.opencontainers.image.source="https://github.com/DHandspikerWade/video-recorder"
 LABEL org.opencontainers.image.title="Video Recorder"
