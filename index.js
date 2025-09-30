@@ -19,6 +19,7 @@ async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
         '-f', 'bestvideo+bestaudio/best', 
         '--add-metadata', 
         '--embed-subs', 
+        '--embed-chapters',
         '--merge-output-format', 'mkv', 
         '-c', 
         '--wait-for-video', '60',
