@@ -469,12 +469,19 @@ module.exports = {
             return 
         }
     },
-    getVideoMetadata: async function(url) {
+    getVideoMetadata: async function(url, cookies) {
         // experimenting with giving twitch high priority as it's likely a live stream.
         const priority = url.indexOf('twitch.tv') ? PRIORITY_CLASS_HIGH : PRIORITY_CLASS_METADATA;
+        const ytOptions = ['-q', '--no-warnings', '--flat-playlist', '--wait-for-video', '10', '-J'];
+
+        if (cookies) {
+            ytOptions.push('--cookies', cookies);
+        }
+
+        ytOptions.push(url);
 
         try {
-            let output = await runCommand('yt-dlp', ['-q', '--no-warnings', '--flat-playlist', '--wait-for-video', '10', '-J', url], PRIORITY_CLASS_METADATA);
+            let output = await runCommand('yt-dlp', ytOptions, PRIORITY_CLASS_METADATA);
             return JSON.parse(output);
         } catch (e) {
             console.error(e);

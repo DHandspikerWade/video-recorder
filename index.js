@@ -54,8 +54,8 @@ async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
 
         let isLive = false;
 
-        console.log('getting metadata for ' + trigger);
-        kubeClient.getVideoMetadata(url.trim()).then((metadata) => {
+        console.log('getting metadata for ' + trigger + (hasCookie ? ' (with cookies)' : ''));
+        kubeClient.getVideoMetadata(url.trim(), hasCookie ? '/data/cookies.txt' : null).then((metadata) => {
             if (metadata) {
                 if (metadata._type == 'playlist') { 
                     metadata.entries.forEach((entry) => {
