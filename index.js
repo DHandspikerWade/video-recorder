@@ -17,6 +17,7 @@ function checkCookieFileExists() {
 async function downloadVideo(url, source, trigger, includeSubs, subdirectory) {
     const youtubeOptions = [
         '-f', 'bestvideo+bestaudio/best', 
+        '--audio-multistreams',
         '--add-metadata', 
         '--embed-subs', 
         '--embed-chapters',
