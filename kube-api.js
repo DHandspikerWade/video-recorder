@@ -201,6 +201,7 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
                 spec: {
                     securityContext: {},
                     automountServiceAccountToken: false,
+                    enableServiceLinks: false, // This program should have it's own namespace, but no need for env clutter anyway
                     topologySpreadConstraints: [ // If there are multiple agents, spread the downloads around
                         {
                             topologyKey: 'kubernetes.io/hostname',
