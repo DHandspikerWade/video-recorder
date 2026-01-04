@@ -308,6 +308,22 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
         newJob.spec.template.spec.securityContext.runAsUser = Number(process.env.PUID);
     }
 
+    // TODO: Not sure if I want to keep this a setting, but it's helpful during long twitch events
+    if (process.env.KUBE_RESOURCES) {
+        let providedResources = null;
+
+        try {
+            providedResources = JSON.parse(process.env.KUBE_RESOURCES);
+        } catch (e) {
+            console.log(e);
+             console.log('Error: Could not parse KUBE_RESOURCES. Using defaults instead.');
+        }
+
+        if (providedResources) {
+            newJob.spec.template.spec.containers[0].resources = providedResources;
+        }
+    }
+
     addObjectMetadata(newJob, metadata);
     // Add matching labels to the pods as well
     addObjectMetadata(newJob.spec.template, metadata);
