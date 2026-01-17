@@ -206,13 +206,17 @@ if (process.env.MQTT_BROKER) {
 
                 let service = topic.replace(baseTopic + '/', '');
 
-                message = message.toString().trim();
-                if (message && service !== 'status') {
-                    (new Set(message.split("\n"))).forEach((item) => {
-                        if (item.trim()) {
-                            handleService(service, item);
-                        }
-                    });
+                if (service === 'ping') {
+                    kubeClient.triggerStatusUpdate();
+                } else {
+                    message = message.toString().trim();
+                    if (message && service !== 'status') {
+                        (new Set(message.split("\n"))).forEach((item) => {
+                            if (item.trim()) {
+                                handleService(service, item);
+                            }
+                        });
+                    }
                 }
             }
         } 

@@ -529,6 +529,10 @@ module.exports = {
     onUpdate: function(callback) {
         statusCallbacks.add(callback);
     },
+    triggerStatusUpdate: function () {
+        statusUpdate();
+        return true;
+    },
     garbageCollect: async function () {
         let response = await k8sBatchApi.listNamespacedJob(NAMESPACE, undefined, false, undefined, undefined, 'video-recorder.spikedhand.com/type')
         if (response.body.items) {
