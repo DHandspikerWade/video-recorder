@@ -399,6 +399,23 @@ async function removeJob(name) {
     k8sBatchApi.deleteNamespacedJob(name, NAMESPACE, 'false', undefined, undefined, undefined, propagationPolicy);
 }
 
+async function evictPod(name) {
+    const eviction = {
+        apiVersion: 'policy/v1',
+        kind: 'Eviction',
+        metadata: {
+            name: name,
+            namespace: NAMESPACE,
+        }
+    };
+
+    try {
+        k8sCoreApi.createNamespacedPodEviction(eviction.metadata.name, eviction.metadata.namespace, eviction);
+    } catch (err) {
+        // Don't care about errors. If the pod is gone, doesn't matter who actually did it
+    }
+}
+
 async function startListening() {
     if (listenId) {
         return;
@@ -462,9 +479,6 @@ startListening();
 
 // startListening should handle any existing pods, but force status update in case there are none on start-up
 statusUpdate();
-
-
-// END TODO
 
 module.exports = {
     downloadVideo: async function(url,  source, trigger, ytOptions, outputDirectory, isLive) {
@@ -558,6 +572,18 @@ module.exports = {
 
                 if (clean) {
                     removeJob(job.metadata.name);
+                }
+            });
+        }
+
+
+        // Find opharned pods that for some reason were not cleaned up by the job controller. 
+        // I think some client doesn't set a propagationPolicy when I manually delete the jobs (Maybe Seabird?)
+        response = await k8sCoreApi.listNamespacedPod(NAMESPACE, undefined, false, undefined, undefined, 'video-recorder.spikedhand.com/type', 10);
+        if (response.body.items) {
+            response.body.items.forEach((pod) => {
+                if (!pod.metadata.ownerReferences) {
+                    evictPod(pod.metadata.name);
                 }
             });
         }
