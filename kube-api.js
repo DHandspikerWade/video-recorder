@@ -493,7 +493,7 @@ module.exports = {
         };
 
         try {
-            await runCommand('yt-dlp', options, (isLive ? PRIORITY_CLASS_HIGH : PRIORITY_CLASS_LOW), outputDirectory, metadata,  'download-');
+            await runCommand('yt-dlp', options, (isLive ? PRIORITY_CLASS_HIGH : PRIORITY_CLASS_LOW), outputDirectory, metadata,  'download');
             statusUpdate();
         } catch (e) {
             console.error(e);
