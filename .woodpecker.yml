@@ -18,7 +18,7 @@ steps:
     - master
 
 - name: Build & publish Experimental
-  image: woodpeckerci/plugin-docker-buildx:5.1.0
+  image: woodpeckerci/plugin-docker-buildx:5.2.2
   settings:
     username:
       from_secret: docker_username
@@ -37,7 +37,7 @@ steps:
 
 # Just test build branches
 - name: Build  
-  image: woodpeckerci/plugin-docker-buildx:5.1.0
+  image: woodpeckerci/plugin-docker-buildx:5.2.2
   settings:
     repo: ghcr.io/dhandspikerwade/video-recorder
     tags: latest
