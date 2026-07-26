@@ -374,7 +374,7 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
 
             addInternalWaiter(response.body.metadata.uid, 'MODIFIED', wait);
 
-if (priority === PRIORITY_CLASS_HIGH) {
+            if (priority === PRIORITY_CLASS_HIGH) {
                 // Live streams should resist evictions
                 addPodDisruptionBudget(response.body);
             }
