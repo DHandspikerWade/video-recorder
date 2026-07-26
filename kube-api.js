@@ -6,6 +6,7 @@ kc.loadFromDefault();
 const k8sContext = kc.getContextObject(kc.getCurrentContext());
 const k8sCoreApi = kc.makeApiClient(k8s.CoreV1Api);
 const k8sBatchApi = kc.makeApiClient(k8s.BatchV1Api);
+const k8sPolicyApi = kc.makeApiClient(k8s.PolicyV1Api);
 
 const watcher = new k8s.Watch(kc);
 
@@ -123,6 +124,37 @@ function getStatusFromJob(job) {
     }
 
     return status;
+}
+
+function addPodDisruptionBudget(job) {
+    const pdb = {
+        apiVersion: "policy/v1",
+        kind: "PodDisruptionBudget",
+        metadata: {
+            name: job.metadata.name + '-pdb',
+            ownerReferences: [
+                {
+                    apiVersion: "batch/v1",
+                    kind: "Job",
+                    name: job.metadata.name,
+                    uid: job.metadata.uid,
+                    controller: false,
+                    blockOwnerDeletion: false,
+                },
+            ],
+        },
+        spec: {
+            minAvailable: 1,
+            selector: {
+                matchLabels: {
+                    "job-name": job.metadata.name,
+                },
+            },
+        },
+    };
+
+    addObjectMetadata(pdb);
+    k8sPolicyApi.createNamespacedPodDisruptionBudget(job.metadata.namespace, pdb);
 }
 
 function parseToleration(rawString) {
@@ -341,6 +373,11 @@ function runCommand(command, options, priority, workingDir, metadata, prefix, ba
             };
 
             addInternalWaiter(response.body.metadata.uid, 'MODIFIED', wait);
+
+if (priority === PRIORITY_CLASS_HIGH) {
+                // Live streams should resist evictions
+                addPodDisruptionBudget(response.body);
+            }
 
         }).catch(function (ex) {
             console.error("Caught exception: ");
