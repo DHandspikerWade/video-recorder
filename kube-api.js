@@ -144,7 +144,7 @@ function addPodDisruptionBudget(job) {
             ],
         },
         spec: {
-            maxUnavailable: 0,
+            minAvailable: 1,
             selector: {
                 matchLabels: {
                     "job-name": job.metadata.name,
